@@ -1,0 +1,42 @@
+#canvas{
+    border: 1px solid #ccc;
+    width: 600px;
+    height: 400px;
+    margin-top: 10px;
+    position: relative;
+}
+.resistor{
+    width: 60px;
+    height: 20px;
+    background-color: #FFF;
+    border: 1px solid #000;
+    position: absolute;
+    text-align: center;
+    line-height: 20px;
+    cursor: move;
+}
+
+.terminal {
+    width: 8px;
+    height: 8px;
+    background-color: red;
+    position: absolute;
+    top: 50%;
+    border-radius: 50%;
+    cursor: pointer;
+    transform:translateY(-50%);
+}
+
+.terminal[data-side="left"]{
+    left: -4px;
+}
+.terminal[data-side="right"]{
+    right: -4px;
+}
+
+.connection-line{
+    height: 2px;
+    background-color: black;
+    position: absolute;
+    transform-origin: left center;
+}

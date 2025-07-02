@@ -1,10 +1,17 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
     <meta charset="utf-8">
+    <title>回路図-Circuitikz変換ツール</title>
+    <link rel="stylesheet" href="style.css">
 </head>
 
 <body>
-    Hello World !
+    <h1>回路図-Circuitikz変換ツール</h1>
+    <button onclick="addResistor()">抵抗を追加</button>
+    <div id="canvas"></div>
+    <textarea id="output" rows="10" cols="60" readonly></textarea>
+
+    <script src="app.js"></script>
 </body>
 </html>
