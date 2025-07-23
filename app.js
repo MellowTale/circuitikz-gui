@@ -17,19 +17,28 @@ function addResistor(){
 
     canvas.appendChild(resistor);
 
+    //左右の線を作成
+    const leftline = document.createElement("div");
+    leftline.className = "lead-line";
+    leftline.style.left = "-10px";
+    resistor.appendChild(leftline);
+    const rightline = document.createElement("div");
+    rightline.className = "lead-line";
+    rightline.style.right = "-10px";
+    resistor.appendChild(rightline);
     //左右の接続点を作成
     const leftTerminal = document.createElement("div");
     leftTerminal.className = "terminal";
     leftTerminal.dataset.owner = resistor.id;
     leftTerminal.dataset.side = "left";
     leftTerminal.addEventListener("click", handleTerminalClick);
-    resistor.appendChild(leftTerminal);
+    leftline.appendChild(leftTerminal);
     const rightTerminal = document.createElement("div");
     rightTerminal.className = "terminal";
     rightTerminal.dataset.owner = resistor.id;
     rightTerminal.dataset.side = "right";
     rightTerminal.addEventListener("click", handleTerminalClick);
-    resistor.appendChild(rightTerminal);
+    rightline.appendChild(rightTerminal);
 
     resistorCount++;
 
