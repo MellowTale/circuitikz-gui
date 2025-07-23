@@ -36,6 +36,8 @@ function addResistor(){
     const tikzCode = `\\draw (0,${resistorCount}) to[R] (2,${resistorCount});`;
     const output = document.getElementById("output");
     output.value += tikzCode + "\n";
+
+    makeDraggable(resistor);
 }
 
 let selectedTerminal = null;
@@ -84,4 +86,32 @@ function drawLineTerminals(from, to){
     line.style.top = (y1 - 2) + "px";
 
     canvas.appendChild(line);
+}
+
+function makeDraggable(element) {
+    let offsetX, offsetY;
+    let isDragging = false;
+
+    element.addEventListener("mousedown", (e) => {
+        isDragging = true;
+        offsetX = e.clientX - element.getBoundingClientRect().left;
+        offsetY = e.clientY - element.getBoundingClientRect().top;
+        document.body.style.userSelect = "none";
+    });
+
+    document.addEventListener("mousemove", (e) => {
+        if (isDragging){
+            const canvas = document.getElementById("canvas");
+            const canvasRect = canvas.getBoundingClientRect();
+            const x = e.clientX - canvasRect.left - offsetX;
+            const y = e.clientY - canvasRect.top - offsetY;
+            element.style.left = `${x}px`;
+            element.style.top = `${y}px`;
+        }
+    });
+
+    document.addEventListener("mouseup", () =>{
+        isDragging = false;
+        document.body.style.userSelect = "auto";
+    });
 }
