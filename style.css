@@ -1,37 +1,76 @@
 #canvas{
-    border: 1px solid #ccc;
+    border: 1px solid #999;
     width: 600px;
     height: 400px;
     margin-top: 10px;
     position: relative;
+    background-image:
+        linear-gradient(to right, #ddd 1px, transparent 1px, transparent 19px, #ddd 1px),
+        linear-gradient(to bottom, #ddd 1px, transparent 1px, transparent 9px, #eee 10px, #eee 11px, transparent 1px, transparent 19px, #ddd 1px),
+        linear-gradient(to right, transparent 9px, #eee 10px, #eee 11px, transparent 1px);
+    background-size: 20px 20px;
 }
+#zero{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    background-image:
+        linear-gradient(to right, transparent 1px, transparent 119px, #999 120px, #999 121px, transparent 1px),
+        linear-gradient(to bottom, transparent 1px, transparent 69px, #999 70px, #999 71px, transparent 1px);
+}
+#wireLayer{
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    pointer-events: none;
+}
+
 .resistor{
-    width: 60px;
-    height: 20px;
+    width: 38px;
+    height: 18px;
     background-color: #FFF;
     border: 1px solid #000;
     position: absolute;
     text-align: center;
-    line-height: 20px;
+    /*line-height: 20px;*/
     cursor: move;
+}
+.resistor:before{
+    content: "";
+    width: 20px;
+    height: 2px;
+    top: 8px;
+    left: -20px;
+    background-color: black;
+    position: absolute;
+}
+.resistor:after{
+    content: "";
+    width: 20px;
+    height: 2px;
+    top: 8px;
+    right: -20px;
+    background-color: black;
+    position: absolute;
 }
 
 .terminal {
-    width: 8px;
-    height: 8px;
+    width: 4px;
+    height: 4px;
+    z-index: 1;
     background-color: red;
     position: absolute;
-    top: 50%;
+    top: 9px;
     border-radius: 50%;
     cursor: pointer;
     transform:translateY(-50%);
 }
 
 .terminal[data-side="left"]{
-    left: -4px;
+    left: -23px;
 }
 .terminal[data-side="right"]{
-    right: -4px;
+    right: -23px;
 }
 
 .connection-line{

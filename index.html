@@ -9,7 +9,11 @@
 <body>
     <h1>回路図-Circuitikz変換ツール</h1>
     <button onclick="addResistor()">抵抗を追加</button>
-    <div id="canvas"></div>
+    <div id="canvas">
+        <div id="zero" >
+            <svg id="wireLayer"></svg>
+        </div>
+    </div>
     <textarea id="output" rows="10" cols="60" readonly></textarea>
 
     <script src="app.js"></script>
