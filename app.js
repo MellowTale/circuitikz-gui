@@ -71,7 +71,7 @@ function addResistor(){
     resistor.style.left = "20px";
     resistor.style.top = (20 * resistorCount) + "px";
 
-    resistor.addEventListener("click", onResistorClick);
+    resistor.addEventListener("pointerdown", onResistorClick);
 
     canvas.appendChild(resistor);
 
@@ -81,7 +81,7 @@ function addResistor(){
     leftTerminal.id = resistor.id + "-left";
     leftTerminal.dataset.owner = resistor.id;
     leftTerminal.dataset.side = "left";
-    leftTerminal.addEventListener("click", handleTerminalClick);
+    leftTerminal.addEventListener('pointerdown', handleTerminalClick);
     resistor.appendChild(leftTerminal);
 
     const rightTerminal = document.createElement("div");
@@ -89,7 +89,7 @@ function addResistor(){
     rightTerminal.id = resistor.id + "-right";
     rightTerminal.dataset.owner = resistor.id;
     rightTerminal.dataset.side = "right";
-    rightTerminal.addEventListener("click", handleTerminalClick);
+    rightTerminal.addEventListener("pointerdown", handleTerminalClick);
     resistor.appendChild(rightTerminal);
 
     resistorCount++;
@@ -105,6 +105,7 @@ function clearSelection(){
 }
 
 function onResistorClick(e){
+    console.log("deteiiyo");
     if(e.target.classList.contains("terminal")) return;
     console.log("detyadame");
     if(wiring.active) return;
@@ -113,21 +114,11 @@ function onResistorClick(e){
 }
 
 let selectedTerminal = null;
-document.querySelectorAll('.terminal').forEach(t=>{
-  t.addEventListener('click', e=>{
-    console.log('[terminal click]', e.eventPhase, e.target, e.currentTarget);
-  }, true);   // ← キャプチャ側でも
-  t.addEventListener('click', e=>{
-    console.log('[terminal click-bubble]', e.eventPhase, e.target, e.currentTarget);
-  });
-});
+
 //端子選択
 function handleTerminalClick(e){
-      e.stopPropagation();  
     const terminal = e.target;
-    console.log("clicked");
     if(!wiring.active){
-        console.log("start");
         startWiring(terminal);
     } else {
         finishWiring(terminal);
