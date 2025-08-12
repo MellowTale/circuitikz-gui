@@ -1,20 +1,63 @@
+document.getElementById("canvas").addEventListener("click", (e) => {
+    if(wiring.active) return;
+    if(e.target.id === "canvas" || e.target.id === "wireLayer" || e.target.id === "zero"){
+        clearSelection();
+    }
+});
+
 //#canvas要素のワールド座標を取得
 function getCanvasRect(){
     return document.getElementById("canvas").getBoundingClientRect();
 }
 
-function getCenterPx(el, canvasRect){
-    const r = el.getBoundingClientRect();
+//グリッドのサイズ・Tikz上の原点の設定
+const GRID = 20;
+const ORIGIN_PX = {x: 120, y: 70};
+
+//ブラウザ上の座標をTikzに変換
+function getCoordinate(r){
     return {
-        x: r.left + r.width  / 2 - canvasRect.left - canvasRect.width / 5,
-        y: r.top  + r.height / 2 - canvasRect.top - canvasRect.height / 5
+        x: r.x - ORIGIN_PX.x,
+        y: r.y - ORIGIN_PX.y
     };
 }
 
-const GRID = 20;
-function pxToGrid(v){
-    return Math.round(v / GRID) / 2;
+function getTerminalCenterPx(termEl){
+    const owner = document.getElementById(termEl.dataset.owner);
+    const side = termEl.dataset.side; //left || right
+
+    const termStyle = getComputedStyle(termEl);
+    const termRadius = parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--termRadius")) || 5;
+    const canvasRect = getCanvasRect();
+    const ownerRect = owner.getBoundingClientRect();
+    const r = {
+        x: ownerRect.left - canvasRect.left,
+        y: ownerRect.top - canvasRect.top
+    };
+    return {
+        x: r.x 
+        +(side === "left"
+            ? parseFloat(termStyle.left) + termRadius
+            : ownerRect.width - parseFloat(termStyle.right) - termRadius
+        ),
+        y: r.y + ownerRect.height / 2
+    };
 }
+
+function halfPxToGrid(r){
+    return {
+        x: Math.round(r.x / GRID) / 2,
+        y: Math.round(r.y / GRID) / 2
+    };
+}
+
+function snapPointToGrid(pt){
+    return {
+        x: Math.round(pt.x * 2 / GRID) * GRID / 2,
+        y: Math.round(pt.y * 2 / GRID) * GRID / 2,
+    };
+}
+
 
 let resistorCount = 0;
 
@@ -27,11 +70,8 @@ function addResistor(){
     resistor.id = "resistor" + resistorCount;
     resistor.style.left = "20px";
     resistor.style.top = (20 * resistorCount) + "px";
-    resistor.draggable = true;
 
-    resistor.addEventListener("dragstart", e => {
-        e.dataTransfer.setData("text/plain", resistor.id);
-    });
+    resistor.addEventListener("click", onResistorClick);
 
     canvas.appendChild(resistor);
 
@@ -54,91 +94,68 @@ function addResistor(){
 
     resistorCount++;
 
-    const tikzCode = `\\draw (0,${resistorCount}) to[R] (2,${resistorCount});`;
-    const output = document.getElementById("output");
-    output.value += tikzCode + "\n";
-
     makeDraggable(resistor);
     regenerateTikz();
 }
 
-let selectedTerminal = null;
-
-//端子選択
-function handleTerminalClick(e){
-    const terminal = e.target;
-
-    if(!wiring.active){
-        startWiring(terminal);
-        terminal.style.backgroundColor = "blue";
-    } else {
-        finishWireing(terminal);
-        if(wiring.fromTerminal) wiring.fromTerminal.style.backgroundColor = "red"; 
-    }
-    // if (!selectedTerminal){
-    //     selectedTerminal = terminal;
-    //     terminal.style.backgroundColor = "blue";
-    // } else {
-    //     const from = selectedTerminal;
-    //     const to = terminal;
-
-    //     drawLineTerminals(from, to);
-
-    //     const output = document.getElementById("output");
-
-    //     selectedTerminal.style.backgroundColor = "red";
-    //     selectedTerminal = null;
-    // }
+function clearSelection(){
+    document.querySelectorAll(".resistor.selected")
+        .forEach(el => el.classList.remove("selected"));
+    if(window.WaypointHandles) WaypointHandles.clear();
 }
 
-//導線を描画
-function drawLineTerminals(from, to){
-    const canvas = document.getElementById("canvas");
-    const line = document.createElement("div");
-    line.className = "connection-line";
-    line.dataset.fromId = from.id;
-    line.dataset.toId = to.id;
+function onResistorClick(e){
+    if(e.target.classList.contains("terminal")) return;
+    console.log("detyadame");
+    if(wiring.active) return;
+    clearSelection();
+    e.currentTarget.classList.add("selected")
+}
 
-    const rect1 = from.getBoundingClientRect();
-    const rect2 = to.getBoundingClientRect();
-    const canvasRect = canvas.getBoundingClientRect();
-
-    const x1 = rect1.left + rect1.width / 2 - canvasRect.left;
-    const y1 = rect1.top + rect1.height / 2 - canvasRect.top;
-    const x2 = rect2.left + rect2.width / 2 - canvasRect.left;
-    const y2 = rect2.top + rect2.height / 2 - canvasRect.top;
-    
-    const length = Math.hypot(x2 - x1, y2 - y1);
-    const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-
-    line.style.width = length + "px";
-    line.style.transform = `rotate(${angle}deg)`;
-    line.style.left = (x1 - 1) + "px";
-    line.style.top = (y1 - 2) + "px";
-
-    canvas.appendChild(line);
-    regenerateTikz();
+let selectedTerminal = null;
+document.querySelectorAll('.terminal').forEach(t=>{
+  t.addEventListener('click', e=>{
+    console.log('[terminal click]', e.eventPhase, e.target, e.currentTarget);
+  }, true);   // ← キャプチャ側でも
+  t.addEventListener('click', e=>{
+    console.log('[terminal click-bubble]', e.eventPhase, e.target, e.currentTarget);
+  });
+});
+//端子選択
+function handleTerminalClick(e){
+      e.stopPropagation();  
+    const terminal = e.target;
+    console.log("clicked");
+    if(!wiring.active){
+        console.log("start");
+        startWiring(terminal);
+    } else {
+        finishWiring(terminal);
+    }
 }
 
 function makeDraggable(element) {
-    let offsetX, offsetY;
+    let offset = {x: 0, y: 0};
     let isDragging = false;
 
-    element.ondragstart = () => false;
+    element.addEventListener('pointerdown', onPointerDown);
 
-    element.addEventListener("mousedown", (e) => {
+    function onPointerDown(e){
+        if(e.button !== 0 && e.pointerType === 'mouse') return;
+        element.setPointerCapture?.(e.pointerId);
+        const elRect = element.getBoundingClientRect();
         isDragging = true;
-        offsetX = e.clientX - element.getBoundingClientRect().left;
-        offsetY = e.clientY - element.getBoundingClientRect().top;
-        document.body.style.userSelect = "none";
-    });
+        offset.x = e.clientX - elRect.left; offset.y = e.clientY - elRect.top;
+        document.addEventListener('pointermove', onPointerMove, {passive: true});
+        document.addEventListener('pointerup', onPointerUp, {passive: true});
+    }
 
-    document.addEventListener("mousemove", (e) => {
-        if (isDragging) {
+    function onPointerMove(e){
+        if(isDragging){
             const canvas = document.getElementById("canvas");
             const canvasRect = canvas.getBoundingClientRect();
-            let x = e.clientX - canvasRect.left - offsetX;
-            let y = e.clientY - canvasRect.top - offsetY;
+            let x = e.clientX - canvasRect.left - offset.x;
+            let y = e.clientY - canvasRect.top - offset.y;
             const maxX = canvas.clientWidth - element.offsetWidth;
             const maxY = canvas.clientHeight - element.offsetHeight;
             x = Math.max(0, Math.min(x, maxX));
@@ -151,12 +168,46 @@ function makeDraggable(element) {
             updateConnections();
             regenerateTikz();
         }
-    });
-
-    document.addEventListener("mouseup", () => {
+    }
+    function onPointerUp(){
         isDragging = false;
-        document.body.style.userSelect = "auto";
-    });
+        document.removeEventListener('pointermove', onPointerMove);
+        document.removeEventListener('pointerup', onPointerUp);
+        if (typeof regenerateTikz === 'function') regenerateTikz();
+    }
+    // element.ondragstart = () => false;
+
+    // element.addEventListener("mousedown", (e) => {
+    //     isDragging = true;
+    //     offsetX = e.clientX - element.getBoundingClientRect().left;
+    //     offsetY = e.clientY - element.getBoundingClientRect().top;
+    //     document.body.style.userSelect = "none";
+    // });
+
+    // document.addEventListener("mousemove", (e) => {
+    //     if (isDragging) {
+    //         const canvas = document.getElementById("canvas");
+    //         const canvasRect = canvas.getBoundingClientRect();
+    //         let x = e.clientX - canvasRect.left - offsetX;
+    //         let y = e.clientY - canvasRect.top - offsetY;
+    //         const maxX = canvas.clientWidth - element.offsetWidth;
+    //         const maxY = canvas.clientHeight - element.offsetHeight;
+    //         x = Math.max(0, Math.min(x, maxX));
+    //         y = Math.max(0, Math.min(y, maxY));
+    //         x = Math.round(x / GRID) * GRID;
+    //         y = Math.round(y / GRID) * GRID;
+
+    //         element.style.left = `${x}px`;
+    //         element.style.top = `${y}px`;
+    //         updateConnections();
+    //         regenerateTikz();
+    //     }
+    // });
+
+    // document.addEventListener("mouseup", () => {
+    //     isDragging = false;
+    //     document.body.style.userSelect = "auto";
+    // });
 }
 
 let wiring = {
@@ -166,27 +217,28 @@ let wiring = {
     preview: null,
 };
 
-function snapPointToGrid(pt){
-    return {
-        x: Math.round(pt.x / GRID) * GRID,
-        y: Math.round(pt.y / GRID) * GRID,
-    };
-}
-
+//マウス位置の取得
 function toCanvasPoint(e){
-    const rect = getCanvasRect();
-    return { x: e.clientX - rect.left, y: e.clientY - rect.top};
+    const canvasRect = getCanvasRect();
+    return {
+        x: e.clientX - canvasRect.left,
+        y: e.clientY - canvasRect.top
+    };
 }
 
 //配線モード開始
 function startWiring(fromTerminal){
+    fromTerminal.style.backgroundColor = "blue";
     wiring.active = true;
     wiring.fromTerminal = fromTerminal;
     wiring.tempPoints = [];
+    
+    document.getElementById("canvas").classList.add("wiring-active");
 
     const svg = document.getElementById("wireLayer");
     //プレビュー
     wiring.preview = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
+    wiring.preview.setAttribute("id", "preview");
     wiring.preview.setAttribute("fill", "none");
     wiring.preview.setAttribute("stroke", "black");
     wiring.preview.setAttribute("stroke-width", "2");
@@ -203,19 +255,22 @@ function addWaypoint(pt){
 //プレビュー更新
 function updatePreview(currentPt){
     if (!wiring.preview) return;
-    const rect = getCanvasRect();
 
-    const p0 = getCenterPx(wiring.fromTerminal, rect);
+    const p0 = snapPointToGrid(getTerminalCenterPx(wiring.fromTerminal));
     const pts = [p0, ...wiring.tempPoints];
-    if(currentPt) pts.push(snapPointToGrid(currentPT));
+    if(currentPt) pts.push(snapPointToGrid(currentPt));
 
     const pointsStr = pts.map(p => `${p.x},${p.y}`).join(" ");
     wiring.preview.setAttribute("points", pointsStr);
+
+    WaypointPreview.sync();
 }
 
 //配線確定
 function finishWiring(toTerminal){
-    const rect = getCanvasRect();
+    if (toTerminal.dataset.owner === wiring.fromTerminal.dataset.owner) return cancelWiring();
+    if (wiring.fromTerminal)
+        wiring.fromTerminal.style.backgroundColor = "red";
     const svg = document.getElementById("wireLayer");
 
     const poly = document.createElementNS("http://www.w3.org/2000/svg", "polyline");
@@ -223,8 +278,8 @@ function finishWiring(toTerminal){
     poly.setAttribute("stroke", "black");
     poly.setAttribute("stroke-width", "2");
 
-    const pStart = getCenterPx(wiring.fromTerminal, rect);
-    const pEnd = getCenterPx(toTerminal, rect);
+    const pStart = snapPointToGrid(getTerminalCenterPx(wiring.fromTerminal));
+    const pEnd = snapPointToGrid(getTerminalCenterPx(toTerminal));
 
     const allPts = [pStart, ...wiring.tempPoints, pEnd];
     poly.setAttribute("points", allPts.map(p => `${p.x},${p.y}`).join(" "));
@@ -234,6 +289,7 @@ function finishWiring(toTerminal){
     poly.classList.add("wire");
 
     svg.appendChild(poly);
+    attachWireHoverHandlers(poly);
 
     //プレビュー削除
     if(wiring.preview){
@@ -243,12 +299,17 @@ function finishWiring(toTerminal){
 
     regenerateTikz();
 
-    wiring.active = false;wiring.fromTerminal = null;
+    wiring.active = false;
     wiring.fromTerminal = null;
     wiring.tempPoints = [];
+
+    document.getElementById("canvas").classList.remove("wiring-active");
 }
 
 function cancelWiring(){
+    if(wiring.fromTerminal){
+        wiring.fromTerminal.style.backgroundColor = "red";
+    }
     if(wiring.preview){
         wiring.preview.remove();
         wiring.preview = null;
@@ -256,11 +317,24 @@ function cancelWiring(){
     wiring.active = false;
     wiring.fromTerminal = null;
     wiring.tempPoints = [];
+
+    document.getElementById("canvas").classList.remove("wiring-active");
+}
+
+function attachWireHoverHandlers(poly){
+    poly.addEventListener('pointerenter', (e) => {
+        if(window.wiring && wiring.active) return; //配線中は無視
+        WaypointHandles.forWire(e.currentTarget);
+    });
+    poly.addEventListener('pointerleave', (e) => {
+        if(window.wiring && wiring.active) return;
+        const rt = e.relatedTarget;
+        if(rt && rt.closest && rt.closest('#handleLayer')) return;
+        WaypointHandles.clear();
+    });
 }
 
 function updateConnections(){
-    function updateConnections(){
-    const rect = getCanvasRect();
     // 1) 端子にバインドされたSVGワイヤを更新
     document.querySelectorAll("svg#wireLayer .wire").forEach(poly => {
         const from = document.getElementById(poly.dataset.fromId);
@@ -278,43 +352,99 @@ function updateConnections(){
         if (pts.length < 2) return;
 
         // 先頭と末尾を端子中心へ更新（中間点はそのまま）
-        pts[0] = getCenterPx(from, rect);
-        pts[pts.length-1] = getCenterPx(to, rect);
+        pts[0] = snapPointToGrid(getTerminalCenterPx(from));
+        pts[pts.length-1] = snapPointToGrid(getTerminalCenterPx(to));
 
         poly.setAttribute("points", pts.map(p => `${p.x},${p.y}`).join(" "));
     });
-    /*
-    const lines = document.querySelectorAll(".connection-line");
-    const canvas = document.getElementById("canvas");
-    const canvasRect = canvas.getBoundingClientRect();
-
-    lines.forEach(line => {
-        const from = document.getElementById(line.dataset.fromId);
-        const to = document.getElementById(line.dataset.toId);
-
-        if (!from || !to) return;
-
-        const rect1 = from.getBoundingClientRect();
-        const rect2 = to.getBoundingClientRect();
-
-        const x1 = rect1.left + rect1.width / 2 - canvasRect.left;
-        const y1 = rect1.top + rect1.height / 2 - canvasRect.top;
-        const x2 = rect2.left + rect2.width / 2 - canvasRect.left;
-        const y2 = rect2.top + rect2.height / 2 - canvasRect.top;
-
-        const length = Math.hypot(x2 - x1, y2 - y1);
-        const angle = Math.atan2(y2 - y1, x2 - x1) * 180 / Math.PI;
-
-        line.style.width = `${length}px`;
-        line.style.transform = `rotate(${angle}deg)`;
-        line.style.left = `${x1 - 1}px`;
-        line.style.top = `${y1 - 2}px`;
-    })
-    */
 }
 
+
+(function(){
+    //polyline points ⇒配列 変換
+    function polyGetPoints(poly){
+        return(poly.getAttribute('points')||'')
+            .split(' ')
+            .filter(Boolean)
+            .map(t => {const [x,y] = t.split(',').map(Number); return{x,y};})
+    }
+    function polySetPoints(poly, pts){
+        poly.setAttribute('points', pts.map(p => `${p.x},${p.y}`).join(' '));
+    }
+
+    const handleLayer = document.getElementById('handleLayer');
+    function clearWaypointHandles(){if(handleLayer) handleLayer.innerHTML='';}
+    function placeHandleAt(h, p){h.style.left = p.x + 'px'; h.style.top = p.y + 'px';}
+
+    let dragging = null;
+
+    function showWaypointsForPolyline(poly, opts = {isPreview: false}){
+        if(!handleLayer || !poly) return;
+        clearWaypointHandles();
+        const pts = polyGetPoints(poly);
+        if(pts.length < 3) return;
+        for(let i=1; i < pts.length-1; i++){
+            const h = document.createElement("div");
+            h.className = "handle-waypoint";
+            h.dataset.index = String(i);
+            h.dataset.preview = opts.isPreview ? "1":"0";
+            placeHandleAt(h, pts[i]);
+            makeHandleDraggable(h, poly, i, opts.isPreview);
+            handleLayer.appendChild(h);
+        }
+    }
+
+    function makeHandleDraggable(h, poly, index, isPreview){
+        h.addEventListener('mousedown', (e) => {
+            e.stopPropagation();
+            h.classList.add('selected');
+            dragging = {handle: h, poly, index, isPreview};
+        });
+    }
+
+    document.addEventListener('mousemove', (e) => {
+        if(!dragging) return;
+        const p = snapPointToGrid(toCanvasPoint(e));
+
+        placeHandleAt(dragging.handle, p);
+        const pts = polyGetPoints(dragging.poly);
+        const idx = Math.max(1, Math.min(pts.length-2, dragging.index));
+        pts[idx] = p;
+        polySetPoints(dragging.poly, pts);
+
+        if(!dragging.isPreview){
+            if(typeof regenerateTikz === 'function') regenerateTikz();
+        }
+    });
+    document.addEventListener('mouseup', () => {
+        if(!dragging) return;
+        dragging.handle.classList.remove('selected');
+        dragging = null;
+    });
+
+    const WaypointHandles = {
+        forWire(poly){showWaypointsForPolyline(poly, {isPreview:false});},
+        clear(){clearWaypointHandles();}
+    };
+    window.WaypointHandles = WaypointHandles;
+    window.WaypointHandles = Object.assign(window.WaypointHandles, {
+        isDragging:() => !!dragging
+    });
+
+    const WaypointPreview = {
+        sync(){
+            if(!window.wiring || !wiring.active){clearWaypointHandles(); return;}
+            const prev = document.getElementById('preview');
+            if(!prev){clearWaypointHandles(); return;}
+            showWaypointsForPolyline(prev, {isPreview:true});
+        }
+    };
+    window.WaypointPreview = WaypointPreview;
+
+})();
+
+
 function regenerateTikz(){
-    const canvasRect = getCanvasRect();
     const out = [];
 
     // 1) 抵抗
@@ -323,51 +453,55 @@ function regenerateTikz(){
         const right = res.querySelector('.terminal[data-side="right"]');
         if(!left || !right) return;
 
-        const p1 = getCenterPx(left,  canvasRect);
-        const p2 = getCenterPx(right, canvasRect);
-        const x1 = pxToGrid(p1.x), y1 = pxToGrid(p1.y);
-        const x2 = pxToGrid(p2.x), y2 = pxToGrid(p2.y);
-
-        out.push(`\\draw (${x1},${y1}) to[european resistor] (${x2},${y2});`);
+        const p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(left)));
+        const p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(right)));
+    
+        out.push(`\\draw (${p1.x},${p1.y}) to[european resistor] (${p2.x},${p2.y});`);
     });
 
     // 2) 導線
-    document.querySelectorAll(".connection-line").forEach((line) => {
-        const from = document.getElementById(line.dataset.fromId);
-        const to   = document.getElementById(line.dataset.toId);
-        if (!from || !to) return;
+    document.querySelectorAll("svg#wireLayer .wire").forEach(poly => {
+    const pts = poly.getAttribute("points")
+                    .split(" ")
+                    .filter(s => s.length)
+                    .map(s => {
+                        const [x,y] = s.split(",").map(Number);
+                        return {x, y};
+                    });
 
-        const p1 = getCenterPx(from, canvasRect);
-        const p2 = getCenterPx(to,   canvasRect);
-        const x1 = pxToGrid(p1.x), y1 = pxToGrid(p1.y);
-        const x2 = pxToGrid(p2.x), y2 = pxToGrid(p2.y);
+    if (pts.length < 2) return;
 
-        out.push(`\\draw (${x1},${y1}) -- (${x2},${y2});`);
-    })
+    const seq = pts.map(p => {
+        const g = halfPxToGrid(getCoordinate(p));
+        return `(${g.x},${g.y})`;
+    }).join(" -- ");
+
+    out.push(`\\draw ${seq};`);
+    });
 
     document.getElementById("output").value = out.join("\n");
 }
 
 (function setupWiringCanvasEvents(){
-  const canvas = document.getElementById("canvas");
+    const canvas = document.getElementById("canvas");
 
-  // 経由点を置く（端子以外をクリックしたら）
-  canvas.addEventListener("click", (e) => {
-    if (!wiring.active) return;
-    // 端子は除外
-    if (e.target.classList.contains("terminal")) return;
+    // 経由点を置く（端子以外をクリックしたら）
+    canvas.addEventListener("click", (e) => {
+        if (!wiring.active) return;
+        // 端子は除外
+        if (e.target.classList.contains("terminal")) return;
 
-    addWaypoint(toCanvasPoint(e));
-  });
+        addWaypoint(toCanvasPoint(e));
+    });
 
-  // マウス移動でプレビュー更新
-  canvas.addEventListener("mousemove", (e) => {
-    if (!wiring.active) return;
-    updatePreview(toCanvasPoint(e));
-  });
+    // マウス移動でプレビュー更新
+    canvas.addEventListener("mousemove", (e) => {
+        if (!wiring.active) return;
+        updatePreview(toCanvasPoint(e));
+    });
 
-  // Escでキャンセル
-  window.addEventListener("keydown", (e) => {
-    if (e.key === "Escape") cancelWiring();
-  });
+    // Escでキャンセル
+    window.addEventListener("keydown", (e) => {
+        if (e.key === "Escape") cancelWiring();
+    });
 })();

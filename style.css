@@ -1,3 +1,7 @@
+:root{
+    --termRadius: 5px;
+}
+
 #canvas{
     border: 1px solid #999;
     width: 600px;
@@ -22,6 +26,15 @@
     width: 100%;
     height: 100%;
     position: absolute;
+    pointer-events: none;
+}
+.wire{
+    pointer-events: auto;
+}
+
+#handleLayer{
+    position: absolute;
+    inset: 0;
     pointer-events: none;
 }
 
@@ -55,27 +68,40 @@
 }
 
 .terminal {
-    width: 4px;
-    height: 4px;
-    z-index: 1;
+    width: calc(var(--termRadius) * 2);
+    height: calc(var(--termRadius) * 2);
+    z-index: 3;
     background-color: red;
     position: absolute;
     top: 9px;
     border-radius: 50%;
     cursor: pointer;
     transform:translateY(-50%);
+    display: none;
+    pointer-events: auto;
+}
+.resistor.selected .terminal{
+    display: block;
+}
+#canvas.wiring-active .terminal{
+    display: block;
 }
 
 .terminal[data-side="left"]{
-    left: -23px;
+    left: calc(-21px - var(--termRadius));
 }
 .terminal[data-side="right"]{
-    right: -23px;
+    right: calc(-21px - var(--termRadius));
 }
 
-.connection-line{
-    height: 2px;
-    background-color: black;
+.handle-waypoint{
     position: absolute;
-    transform-origin: left center;
+    width: calc(var(--termRadius) * 2);
+    height: calc(var(--termRadius) * 2);
+    border-radius: 50%;
+    background-color: red;
+    transform: translate(-50%, -50%);
+    pointer-events: auto;
+    box-shadow: 0 0 0 1px #fff;
 }
+.handle-waypoint.selected{outline: 2px solid #00f;}
