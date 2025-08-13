@@ -29,7 +29,14 @@
     pointer-events: none;
 }
 .wire{
-    pointer-events: auto;
+    pointer-events: none;
+}
+.wire-hit{
+    fill: none;
+    stroke: black;
+    stroke-opacity: 0.001;
+    stroke-width: 12;
+    pointer-events: stroke;
 }
 
 #handleLayer{
