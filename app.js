@@ -28,30 +28,47 @@ function getHandleRadiusPx(){
 
 function getTerminalCenterPx(termEl){
     const owner = document.getElementById(termEl.dataset.owner);
-    const side = termEl.dataset.side; //left || right
+    const side = termEl.dataset.side; //left | right | top | bottom
 
     const termStyle = getComputedStyle(termEl);
     const termRadius = getHandleRadiusPx();
     const canvasRect = getCanvasRect();
     const ownerRect = owner.getBoundingClientRect();
-    const r = {
+
+    const base = {
         x: ownerRect.left - canvasRect.left,
         y: ownerRect.top - canvasRect.top
     };
+
+    if(side === "left"){
+        return {
+        x: base.x + parseFloat(termStyle.left) + termRadius,
+        y: base.y + ownerRect.height / 2
+        };
+    }
+    if(side === "right"){
+        return {
+        x: base.x + ownerRect.width - parseFloat(termStyle.right) - termRadius,
+        y: base.y + ownerRect.height / 2
+        };
+    }
+    if(side === "top"){
+        return {
+        x: base.x + ownerRect.width / 2,
+        y: base.y + parseFloat(termStyle.top) + termRadius
+        };
+    }
+    // bottom
     return {
-        x: r.x 
-        +(side === "left"
-            ? parseFloat(termStyle.left) + termRadius
-            : ownerRect.width - parseFloat(termStyle.right) - termRadius
-        ),
-        y: r.y + ownerRect.height / 2
+        x: base.x + ownerRect.width / 2,
+        y: base.y + ownerRect.height - parseFloat(termStyle.bottom) - termRadius
     };
 }
 
 function halfPxToGrid(r){
     return {
-        x: Math.round(r.x / GRID) / 2,
-        y: Math.round(r.y / GRID) / 2
+        x: Math.round(r.x * 2 / GRID) / 4,
+        y: Math.round(r.y * 2 / GRID) / 4
     };
 }
 
@@ -73,9 +90,11 @@ function clampPointToCanvas(elsize, pt, margin={l:0,r:0,t:0,b:0}){
     const canvas = document.getElementById("canvas");
 
     const maxR = {
-        x: canvas.clientWidth - margin.r - elsize.w,
-        y: canvas.clientHeight - margin.b - elsize.h
+        x: canvas.clientWidth - margin.r - 1,
+        y: canvas.clientHeight - margin.b - 1
     };
+
+    console.log(margin.t);
     return {
         x: Math.max(margin.l, Math.min(pt.x, maxR.x)),
         y: Math.max(margin.t, Math.min(pt.y, maxR.y))
@@ -91,53 +110,208 @@ function normalizeCanvasPoint(elsize, pt, margin = {l:0,r:0,t:0,b:0}, gridSize =
 
 }
 
-let resistorCount = 0;
+let elementCount = 0;
+let placing = { active:false, el:null, kind:null };
 
-//抵抗の追加
-function addResistor(){
+function startPlacing(kind){
+  if(wiring.active) cancelWiring();
+  if(placing.active) cancelPlacing();
+
+  let el = null;
+  if(kind === 'ground-img'){
+    el = addGround();
+  }else if(kind === 'resistor'){
+    el = add2PinElement('resistor');
+  }else if(kind === 'vsource'){
+    el = add2PinElement('vsource');
+  }
+  if(!el) return;
+    elRect = el.getBoundingClientRect();
+    console.log(elRect.width);
+  // プレビュー化
+  el.classList.add('component-preview');
+  placing = { active:true, el, kind };
+
+  document.getElementById("canvas").classList.add("placing-active");
+}
+
+function finalizePlacing(e){
+  if(!placing.active) return;
+  placeElementUnderCursor(placing.el, e);            // 最終位置に合わせる
+  placing.el.classList.remove('component-preview');  // プレビュー解除
+  placing.el.style.pointerEvents = '';               // イベント復活
+  makeDraggable(placing.el);                         // 通常ドラッグ化
+  regenerateTikz?.();
+  document.getElementById('canvas').classList.remove('placing-active');
+  placing = { active:false, el:null, kind:null };
+}
+
+function cancelPlacing(){
+  if(!placing.active) return;
+  placing.el?.remove();                              // 生成済みプレビューを破棄
+  document.getElementById('canvas').classList.remove('placing-active');
+  placing = { active:false, el:null, kind:null };
+}
+
+// ---- 配置モードのイベント（キャンバス優先）----
+(function setupPlacingEvents(){
+  const canvas = document.getElementById('canvas');
+
+  // 配置中はカーソル追従
+  canvas.addEventListener('pointermove', (e)=>{
+    if(!placing.active) return;
+    placeElementUnderCursor(placing.el, e);
+  }, {passive:true});
+
+  // 左クリックで配置確定
+  canvas.addEventListener('pointerdown', (e)=>{
+    if(!placing.active) return;
+    if(e.button !== 0 && e.pointerType === 'mouse') return;
+    e.stopPropagation();
+    finalizePlacing(e);
+  });
+
+  // Esc で配置キャンセル（入力中は無視）
+  window.addEventListener('keydown', (e)=>{
+    const el = document.activeElement;
+    const isEditing = el && (el.tagName === 'INPUT' || el.tagName === 'TEXTAREA' || el.isContentEditable);
+    if(isEditing) return;
+    if(e.key === 'Escape') cancelPlacing();
+  });
+})();
+
+function createComponent({className, pinSides = [], innerHTML = "", idPrefix, extraMargin = {l:0,r:0,t:0,b:0}}){
     const canvas = document.getElementById("canvas");
-    const resistor = document.createElement("div");
-    resistor.className = "resistor";
-    //resistor.innerText = "R";
-    resistor.id = "resistor" + resistorCount;
-    resistor.style.left = "20px";
-    resistor.style.top = (20 * resistorCount) + "px";
-    resistor.addEventListener("pointerdown", onResistorClick);
+    const el = document.createElement("div");
+    el.className = className;
+    el.id = (idPrefix || className) + (elementCount++);
+    el.innerHTML = innerHTML;
 
-    canvas.appendChild(resistor);
+    // 選択
+    el.addEventListener("pointerdown", onElementClick);
 
-    resistor.margin = {l: 20, r: 20, t: 0, b: 0};
+    // 端子を追加
+    pinSides.forEach(side => {
+        const t = document.createElement("div");
+        t.className = "terminal";
+        t.id = `${el.id}-${side}`;
+        t.dataset.owner = el.id;
+        t.dataset.side  = side;
+        t.addEventListener("pointerdown", handleTerminalClick);
+        el.appendChild(t);
+    });
+
+    canvas.appendChild(el);
+
+    // マージン（要素全体を内側に収めるための半幅/半高）
+    el.margin = {
+        l: el.offsetWidth / 2 + extraMargin.l,
+        r: el.offsetWidth / 2 + extraMargin.r,
+        t: el.offsetHeight / 2 + extraMargin.t,
+        b: el.offsetHeight / 2 + extraMargin.b
+    };
+
+    makeDraggable(el);
+    regenerateTikz?.();
+    return el;
+}
+
+function placeElementUnderCursor(el, e){
+    const pt = toCanvasPoint(e);
+    const elsize = { w: el.offsetWidth, h: el.offsetHeight };
+    const margin = el.margin || {l:0,r:0,t:0,b:0};
+
+    const raw = { x: pt.x, y: pt.y };
+    const p = normalizeCanvasPoint({w:elsize.w, h:elsize.h}, raw, margin, "S");
+    el.style.left = p.x + "px";
+    el.style.top = p.y + "px";
+}
+
+function add2PinElement(className, imgPath){
+    const extra = className === 'resistor' ? {l:20,r:20,t:0,b:0} : {l:0,r:0,t:0,b:0};
+    return createComponent({
+        className,
+        pinSides: ["left","right"],
+        extraMargin: extra
+    });
+}
+
+function addGround(){
+    return createComponent({
+        className: "ground-img",
+        pinSides: ["top"],
+        innerHTML: `<img src="gnd.svg" alt="GND">`
+    });
+}
+
+function rotate2Pin(el){
+    const cur = parseInt(el.dataset.angle, 10) || 0;
+    const next = (cur + 90 + 360) % 360;
+    el.dataset.angle = String(next);
+
+    el.classList.toggle("o0", next === 0);
+    el.classList.toggle("o90", next === 90);
+    el.classList.toggle("o180", next === 180);
+    el.classList.toggle("o270", next === 270);
+
+    const MAP = { left:'top', top:'right', right:'bottom', bottom:'left' };
+    el.querySelectorAll('.terminal').forEach(t => {
+        const next = MAP[t.dataset.side];
+        if (next) t.dataset.side = next;
+    });
+    updateConnections();
+    regenerateTikz?.();
+    // if(el.classList.contains("o90")){
+    //     el.classList.add("o180");
+    //     el.classList.remove("o90");
+    //     console.log("180");
+    // } else if(el.classList.contains("o180")){
+    //     el.classList.add("o270");
+    //     el.classList.remove("o180");
+    //     console.log("270");
+    // } else if(el.classList.contains("o270")){
+    //     el.classList.remove("o270");
+    //     console.log("null");
+    // } else {
+    //     el.classList.add("o90");
+    // }
+
+    // el.querySelectorAll('.terminal').forEach(term => {
+    //     switch(term.dataset.side){
+    //         case "left":
+    //             term.dataset.side = "top";
+    //             break;
+    //         case "top":
+    //             term.dataset.side = "right";
+    //             break;
+    //         case "right":
+    //             term.dataset.side = "bottom";
+    //             break;
+    //         case "bottom":
+    //             term.dataset.side = "left";
+    //             break;
+    //         default: return;
+    //     }
+    // });
     
-    //左右の接続点を作成
-    const leftTerminal = document.createElement("div");
-    leftTerminal.className = "terminal";
-    leftTerminal.id = resistor.id + "-left";
-    leftTerminal.dataset.owner = resistor.id;
-    leftTerminal.dataset.side = "left";
-    leftTerminal.addEventListener('pointerdown', handleTerminalClick);
-    resistor.appendChild(leftTerminal);
 
-    const rightTerminal = document.createElement("div");
-    rightTerminal.className = "terminal";
-    rightTerminal.id = resistor.id + "-right";
-    rightTerminal.dataset.owner = resistor.id;
-    rightTerminal.dataset.side = "right";
-    rightTerminal.addEventListener("pointerdown", handleTerminalClick);
-    resistor.appendChild(rightTerminal);
-
-    resistorCount++;
-
-    makeDraggable(resistor);
-    regenerateTikz();
+    // updateConnections();
+    // if (typeof regenerateTikz === 'function') regenerateTikz();
+}
+// 例: 選択中の抵抗/電源だけ回転（R キー）
+function rotateSelected(){
+    const el = document.querySelector('.resistor.selected, .vsource.selected, .ground-img.selected');
+    if (!el) return;
+    rotate2Pin(el);
 }
 
 function clearSelection(){
-    document.querySelectorAll(".resistor.selected")
+    document.querySelectorAll(".selected")
         .forEach(el => el.classList.remove("selected"));
     if(window.WaypointHandles) WaypointHandles.clear();
 }
 
-function onResistorClick(e){
+function onElementClick(e){
     if(e.target.classList.contains("terminal")) return;
     if(wiring.active) return;
     clearSelection();
@@ -166,7 +340,7 @@ function makeDraggable(element) {
         element.setPointerCapture?.(e.pointerId);
         const elRect = element.getBoundingClientRect();
         isDragging = true;
-        offset.x = e.clientX - elRect.left; offset.y = e.clientY - elRect.top;
+        offset.x = e.clientX - elRect.left - elRect.width / 2; offset.y = e.clientY - elRect.top - elRect.height / 2;
         document.addEventListener('pointermove', onPointerMove, {passive: true});
         document.addEventListener('pointerup', onPointerUp, {passive: true});
     }
@@ -179,8 +353,6 @@ function makeDraggable(element) {
                 x: e.clientX - canvasRect.left - offset.x,
                 y: e.clientY - canvasRect.top - offset.y
             };
-            // const maxX = canvas.clientWidth - element.offsetWidth;
-            // const maxY = canvas.clientHeight - element.offsetHeight;
 
             const elsize = {
                 w: element.offsetWidth,
@@ -194,7 +366,7 @@ function makeDraggable(element) {
                 b:element.margin.b
             };
 
-            let p = normalizeCanvasPoint(elsize, raw, margin, "L");
+            let p = normalizeCanvasPoint(elsize, raw, margin, "S");
 
             element.style.left = `${p.x}px`;
             element.style.top = `${p.y}px`;
@@ -465,9 +637,6 @@ function updateConnections(){
         currentWire(){ return currentWire; }
     };
     window.WaypointHandles = WaypointHandles;
-    // window.WaypointHandles = Object.assign(window.WaypointHandles, {
-    //     isDragging:() => !!dragging
-    // });
 
     const WaypointPreview = {
         sync(){
@@ -485,19 +654,66 @@ function updateConnections(){
 function regenerateTikz(){
     const out = [];
 
-    // 1) 抵抗
-    document.querySelectorAll(".resistor").forEach((res) => {
-        const left = res.querySelector('.terminal[data-side="left"]');
-        const right = res.querySelector('.terminal[data-side="right"]');
-        if(!left || !right) return;
+    if (true){
+        out.push(`\\begin{figure}[h]\n\\centering\n\\begin{circuitikz}[american]`);
+    }    
 
-        const p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(left)));
-        const p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(right)));
-    
-        out.push(`\\draw (${p1.x},${p1.y}) to[european resistor] (${p2.x},${p2.y});`);
+    // 1) 抵抗
+    document.querySelectorAll(".resistor").forEach((el) => {
+        const left = el.querySelector('.terminal[data-side="left"]');
+        const right = el.querySelector('.terminal[data-side="right"]');
+        const top = el.querySelector('.terminal[data-side="top"]');
+        const bottom = el.querySelector('.terminal[data-side="bottom"]');
+        let p1 = 0; let p2 = 0;
+        if(left && right){
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(left)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(right)));
+        } else if (top && bottom){
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(top)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(bottom)));
+        } else return;
+        if(el.classList.contains("o180") || el.classList.contains("o270")){
+            out.push(`\\draw (${p2.x},${p2.y}) to[european resistor] (${p1.x},${p1.y});`);
+        } else {
+            out.push(`\\draw (${p1.x},${p1.y}) to[european resistor] (${p2.x},${p2.y});`);
+        }
     });
 
-    // 2) 導線
+    // 2) 電源
+    document.querySelectorAll(".vsource").forEach((el) => {
+        const left = el.querySelector('.terminal[data-side="left"]');
+        const right = el.querySelector('.terminal[data-side="right"]');
+        const top = el.querySelector('.terminal[data-side="top"]');
+        const bottom = el.querySelector('.terminal[data-side="bottom"]');
+        let p1 = 0; let p2 = 0;
+        if(left && right){
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(left)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(right)));
+        } else if (top && bottom){
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(top)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(bottom)));
+        } else return;
+        if(el.classList.contains("o180") || el.classList.contains("o270")){
+            out.push(`\\draw (${p2.x},${p2.y}) to[battery1] (${p1.x},${p1.y});`);
+        } else {
+            out.push(`\\draw (${p1.x},${p1.y}) to[battery1] (${p2.x},${p2.y});`);
+        }
+    });
+
+    // 3) GND
+    document.querySelectorAll(".ground-img").forEach((g) => {
+        const term = g.querySelector('.terminal');
+        if(!term) return;
+        const p = halfPxToGrid(getCoordinate(getTerminalCenterPx(term)));
+        let angle = ""
+        if(g.classList.contains("o90")) {angle = ", rotate=270";}
+        else if(g.classList.contains("o180")) {angle = ", rotate=180"}
+        else if(g.classList.contains("o270")) {angle = ", rotate=90"}
+        else {angle = ""}
+        out.push(`\\draw (${p.x},${p.y}) node[ground${angle}] {};`);
+    });
+
+    // 4) 導線
     document.querySelectorAll("svg#wireLayer .wire").forEach(poly => {
     const pts = poly.getAttribute("points")
                     .split(" ")
@@ -516,6 +732,10 @@ function regenerateTikz(){
 
     out.push(`\\draw ${seq};`);
     });
+
+    if (true){
+        out.push(`\\end{circuitikz}\n\\end{figure}`);
+    }    
 
     document.getElementById("output").value = out.join("\n");
 }
@@ -576,7 +796,8 @@ function removeElement(element){
                 removeWire(poly.dataset.wireId);
                 return;
             }
-        }        
+        }
+        if (e.key.toLowerCase() === 'r') rotateSelected();
         return;
     });
 })();

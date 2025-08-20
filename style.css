@@ -1,6 +1,14 @@
 :root{
     --termRadius: 5px;
 }
+.component { 
+  --term-left:  calc(-21px - var(--termRadius));
+  --term-right: calc(-21px - var(--termRadius));
+  --term-top:   calc(-21px - var(--termRadius));
+  --term-bottom:calc(-21px - var(--termRadius));
+  /* --term-v: 50%; 左右端子の縦位置 */
+  /* --term-h: 50%; 上下端子の横位置 */
+}
 
 #canvas{
     border: 1px solid #999;
@@ -14,6 +22,14 @@
         linear-gradient(to right, transparent 9px, #eee 10px, #eee 11px, transparent 1px);
     background-size: 20px 20px;
 }
+#canvas.placing-active { cursor: crosshair; }
+.component-preview{
+    opacity: .65;
+    pointer-events: none;
+    outline: 1px dashed #999;
+}
+.component-preview .terminal{ display: none !important; }
+
 #zero{
     width: 100%;
     height: 100%;
@@ -45,6 +61,10 @@
     pointer-events: none;
 }
 
+.resistor, .vsource, .ground, .ground-img {
+  touch-action: none;
+}
+
 .resistor{
     width: 38px;
     height: 18px;
@@ -52,27 +72,62 @@
     border: 1px solid #000;
     position: absolute;
     text-align: center;
-    /*line-height: 20px;*/
+    cursor: move;
+    transform:translateX(-50%) translateY(-50%);
+}
+.resistor::before, .resistor::after{
+    content: "";
+    width: 20px;
+    height: 2px;
+    top: 8px;
+    background-color: black;
+    position: absolute;
+}
+.resistor::before{ left: -20px; }
+.resistor::after{ right: -20px; }
+.resistor.o90, .resistor.o270{ width:18px; height:38px; }
+.resistor.o90::before, .resistor.o270::after{ width: 2px; height: 20px; top: -20px; bottom: auto; left: 8px;}
+.resistor.o90::after, .resistor.o270::before{ width: 2px; height: 20px; top: auto; bottom: -20px; left: 8px;}
+
+.vsource{
+    width: 38px;
+    height: 38px;
+    background-color: #fff;
+    border: 1px solid #000;
+    border-radius: 50%;
+    position: absolute;
+    cursor: move;
+    transform:translateX(-50%) translateY(-50%);
+}
+.vsource::before, .vsource::after{
+    content:"";
+    position: absolute;
+    width: 20px;
+    height: 2px;
+    top: calc(50% - 1px);
+    background: #000;
+}
+.vsource::before{ left: -20px; }
+.vsource::after{ right: -20px; }
+.vsource.o90::before, .vsource.o270::after{ width: 2px; height: 20px; top: -20px; bottom: auto; left: calc(50% - 1px);}
+.vsource.o90::after, .vsource.o270::before{ width: 2px; height: 20px; top: auto; bottom: -20px; left: calc(50% - 1px);}
+
+.ground-img{
+    position: absolute;
+    width: 20px;
+    height: 20px;
     cursor: move;
 }
-.resistor:before{
-    content: "";
-    width: 20px;
-    height: 2px;
-    top: 8px;
-    left: -20px;
-    background-color: black;
-    position: absolute;
+.ground-img img{
+    width: 100%;
+    height: 100%;
+    display: block;
+    pointer-events: none;
 }
-.resistor:after{
-    content: "";
-    width: 20px;
-    height: 2px;
-    top: 8px;
-    right: -20px;
-    background-color: black;
-    position: absolute;
-}
+
+.ground-img.o90 img{ transform: rotate(90deg); transform-origin: center; }
+.ground-img.o180 img{ transform: rotate(180deg); transform-origin: center; }
+.ground-img.o270 img{ transform: rotate(270deg); transform-origin: center; }
 
 .terminal {
     width: calc(var(--termRadius) * 2);
@@ -80,25 +135,67 @@
     z-index: 1;
     background-color: red;
     position: absolute;
-    top: 9px;
     border-radius: 50%;
     cursor: pointer;
-    transform:translateY(-50%);
     display: none;
     pointer-events: auto;
 }
-.resistor.selected .terminal{
-    display: block;
-}
-#canvas.wiring-active .terminal{
+
+#canvas.wiring-active .terminal,
+.selected .terminal{
     display: block;
 }
 
+.component { 
+    --term-left:  calc(-21px - var(--termRadius));
+    --term-right: calc(-21px - var(--termRadius));
+    --term-top:   calc(-21px - var(--termRadius));
+    --term-bottom:calc(-21px - var(--termRadius));
+    /* --term-v: 50%; 左右端子の縦位置 */
+    /* --term-h: 50%; 上下端子の横位置 */
+}
+.resistor{
+    --term-left:  calc(-21px - var(--termRadius));
+    --term-right: calc(-21px - var(--termRadius));
+    --term-top:   calc(-21px - var(--termRadius));
+    --term-bottom:calc(-21px - var(--termRadius));
+}
+.vsource{
+    --term-left:  calc(-21px - var(--termRadius));
+    --term-right: calc(-21px - var(--termRadius));
+    --term-top:   calc(-21px - var(--termRadius));
+    --term-bottom:calc(-21px - var(--termRadius));
+}
+.ground-img {
+    --term-left: calc(-1 * var(--termRadius));
+    --term-right: calc(-1 * var(--termRadius));
+    --term-top: calc(-1 * var(--termRadius));
+    --term-bottom: calc(-1 * var(--termRadius));
+}
+
 .terminal[data-side="left"]{
-    left: calc(-21px - var(--termRadius));
+    left: var(--term-left);
+    right: auto;
+    top: 50%;
+    transform: translateY(-50%);
 }
 .terminal[data-side="right"]{
-    right: calc(-21px - var(--termRadius));
+    right: var(--term-right);
+    left: auto;
+    top: 50%;
+    transform: translateY(-50%);
+}
+.terminal[data-side="top"]{
+    top: var(--term-top);
+    bottom: auto;
+    left: 50%;
+    transform: translateX(-50%);
+}
+.terminal[data-side="bottom"]{
+    bottom: var(--term-bottom);
+    top: auto;
+    left: 50%;
+    transform: translateX(-50%);
 }
 
 .handle-waypoint{
