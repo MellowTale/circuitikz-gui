@@ -12,7 +12,10 @@ function getCanvasRect(){
 
 //グリッドのサイズ・Tikz上の原点の設定
 const GRID = 20;
-const ORIGIN_PX = {x: 120, y: 70};
+const ORIGIN_PX = {
+    x: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--origin-x")) || 120, 
+    y: parseFloat(getComputedStyle(document.documentElement).getPropertyValue("--origin-y")) || 30
+};
 
 //ブラウザ上の座標をTikzに変換
 function getCoordinate(r){
@@ -68,7 +71,7 @@ function getTerminalCenterPx(termEl){
 function halfPxToGrid(r){
     return {
         x: Math.round(r.x * 2 / GRID) / 4,
-        y: Math.round(r.y * 2 / GRID) / 4
+        y: - Math.round(r.y * 2 / GRID) / 4
     };
 }
 
@@ -94,7 +97,6 @@ function clampPointToCanvas(elsize, pt, margin={l:0,r:0,t:0,b:0}){
         y: canvas.clientHeight - margin.b - 1
     };
 
-    console.log(margin.t);
     return {
         x: Math.max(margin.l, Math.min(pt.x, maxR.x)),
         y: Math.max(margin.t, Math.min(pt.y, maxR.y))
@@ -113,6 +115,7 @@ function normalizeCanvasPoint(elsize, pt, margin = {l:0,r:0,t:0,b:0}, gridSize =
 let elementCount = 0;
 let placing = { active:false, el:null, kind:null };
 
+//配置する要素を判別・placingに格納
 function startPlacing(kind){
   if(wiring.active) cancelWiring();
   if(placing.active) cancelPlacing();
@@ -126,8 +129,8 @@ function startPlacing(kind){
     el = add2PinElement('vsource');
   }
   if(!el) return;
-    elRect = el.getBoundingClientRect();
-    console.log(elRect.width);
+    // elRect = el.getBoundingClientRect();
+    // console.log(elRect.width);
   // プレビュー化
   el.classList.add('component-preview');
   placing = { active:true, el, kind };
@@ -334,6 +337,14 @@ function makeDraggable(element) {
     let isDragging = false;
 
     element.addEventListener('pointerdown', onPointerDown);
+    // element.addEventListener("dblclick", (e) => {
+    //     const sel = document.querySelector(".selected");
+    //     if (sel){
+    //         e.preventDefault();
+    //         removeElement(sel);
+    //         return;
+    //     }
+    // });
 
     function onPointerDown(e){
         if(e.button !== 0 && e.pointerType === 'mouse') return;
@@ -341,6 +352,7 @@ function makeDraggable(element) {
         const elRect = element.getBoundingClientRect();
         isDragging = true;
         offset.x = e.clientX - elRect.left - elRect.width / 2; offset.y = e.clientY - elRect.top - elRect.height / 2;
+        document.body.classList.add("no-select");
         document.addEventListener('pointermove', onPointerMove, {passive: true});
         document.addEventListener('pointerup', onPointerUp, {passive: true});
     }
@@ -353,7 +365,6 @@ function makeDraggable(element) {
                 x: e.clientX - canvasRect.left - offset.x,
                 y: e.clientY - canvasRect.top - offset.y
             };
-
             const elsize = {
                 w: element.offsetWidth,
                 h: element.offsetHeight
@@ -377,6 +388,7 @@ function makeDraggable(element) {
     function onPointerUp(e){
         isDragging = false;
         element.releasePointerCapture?.(e.pointerId);
+        document.body.classList.remove("no-select");
         document.removeEventListener('pointermove', onPointerMove);
         document.removeEventListener('pointerup', onPointerUp);
         if (typeof regenerateTikz === 'function') regenerateTikz();

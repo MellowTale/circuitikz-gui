@@ -1,5 +1,7 @@
 :root{
     --termRadius: 5px;
+    --origin-x: 120px;
+    --origin-y: 330px;
 }
 .component { 
   --term-left:  calc(-21px - var(--termRadius));
@@ -35,8 +37,8 @@
     height: 100%;
     position: absolute;
     background-image:
-        linear-gradient(to right, transparent 1px, transparent 119px, #999 120px, #999 121px, transparent 1px),
-        linear-gradient(to bottom, transparent 1px, transparent 69px, #999 70px, #999 71px, transparent 1px);
+        linear-gradient(to right, transparent 1px, transparent calc(var(--origin-x) - 1px), #999 var(--origin-x), #999 calc(var(--origin-x) + 1px), transparent 1px),
+        linear-gradient(to bottom, transparent 1px, transparent calc(var(--origin-y) - 1px), #999 var(--origin-y), #999 calc(var(--origin-y) + 1px), transparent 1px);
 }
 #wireLayer{
     width: 100%;
@@ -63,6 +65,9 @@
 
 .resistor, .vsource, .ground, .ground-img {
   touch-action: none;
+}
+.no-select{
+    user-select: none;
 }
 
 .resistor{
@@ -117,6 +122,7 @@
     width: 20px;
     height: 20px;
     cursor: move;
+    transform:translateX(-50%) translateY(-50%);
 }
 .ground-img img{
     width: 100%;
