@@ -801,3 +801,10 @@ function removeElement(element){
         return;
     });
 })();
+
+window.addEventListener('DOMContentLoaded', () => {
+  const btnRes = document.getElementById('btn-resistor');
+  btnRes?.addEventListener('click', () => {
+    startPlacing("resistor")
+  });
+});
