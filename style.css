@@ -29,7 +29,7 @@
 }
 button.tool{
   display: grid; place-items: center;
-  /* width:100%; */
+  width:100%; 
   height: 50px;
   border:1px solid #bbb; border-radius:10px;
   background:#fff; cursor:pointer;
