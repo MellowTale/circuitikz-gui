@@ -61,12 +61,21 @@ button.tool img{transform: translateY(-50%) translateY(1px);}
     resize: none;
 }
 
-
+#canvasWrap{
+    flex: 1;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    width: 100%;
+    height: 100%;
+}
 #canvas{
     border: 1px solid #999;
-    width: 600px;
-    height: 400px;
-    /* margin-top: 10px; */
+    width: 100%;
+    height: 100%;
+    max-width: 1200px;
+    max-height: 800px;
+    min-height: 400px;
     position: relative;
     background-image:
         linear-gradient(to right, #ddd 1px, transparent 1px, transparent 19px, #ddd 1px),
