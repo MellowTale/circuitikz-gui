@@ -12,11 +12,61 @@
   /* --term-h: 50%; 上下端子の横位置 */
 }
 
+.workspace{
+  display: grid;
+  grid-template-columns: 220px 1fr;
+  gap: 16px;
+  max-width: 1200px;
+  margin: 0 auto 16px;
+  padding: 0 12px;
+}
+#sidebar{ position: sticky; }
+.toolgroup{
+    display: grid;
+    /* grid-template-rows: 45px 45px; */
+    grid-template-columns: repeat(2, 1fr);
+    gap: 5px;
+}
+button.tool{
+  display: grid; place-items: center;
+  /* width:100%; */
+  height: 50px;
+  border:1px solid #bbb; border-radius:10px;
+  background:#fff; cursor:pointer;
+}
+button.tool.is-active{
+    border-color: #59f;
+    box-shadow: 0 0 3px 3px #4a90e226 inset;
+    background: linear-gradient(#f8fbff, #f2f7ff);
+}
+button.tool img{transform: translateY(-50%) translateY(1px);}
+.iconSpace{
+    width: 80px; height: 0;
+    margin: auto;
+}
+.icon{
+    cursor: pointer !important;
+    position: static !important;
+    margin: auto;
+    transform: translateY(-50%) !important;
+}
+
+.outputWrap{
+    display:flex;
+    justify-content:center;
+    margin:12px 0 24px;
+}
+.outputWrap #output{
+    width: min(100%, 700px);
+    resize: none;
+}
+
+
 #canvas{
     border: 1px solid #999;
     width: 600px;
     height: 400px;
-    margin-top: 10px;
+    /* margin-top: 10px; */
     position: relative;
     background-image:
         linear-gradient(to right, #ddd 1px, transparent 1px, transparent 19px, #ddd 1px),
@@ -66,7 +116,14 @@
 .resistor, .vsource, .ground, .ground-img {
   touch-action: none;
 }
-.no-select{
+body.no-select,
+body.no-select *,
+#canvas,
+#canvas *,
+#wireLayer,
+#handleLayer{
+    -webkit-user-select: none;
+    -ms-user-select: none;
     user-select: none;
 }
 
@@ -214,4 +271,4 @@
     pointer-events: auto;
     box-shadow: 0 0 0 1px #fff;
 }
-.handle-waypoint.selected{outline: 2px solid #00f;}
+.handle-waypoint.selected{outline: 2px solid #59f;}
