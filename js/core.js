@@ -460,6 +460,8 @@ document.addEventListener('pointermove', (e) => {
         if (!dragging.isPreview) {
             const wpId = dragging.handle.dataset.waypointId; // ← ドラッグ中の “経由点ID”
 
+  console.log("---- ドラッグ中 ----");
+  console.log("掴んだ経由点 wpId:", wpId);
             // 1) junction 同期（あなたの既存コードがあればそのまま残してください）
             //    - master = findMasterByWaypoint(wpId) || wpId; ... 等
             //    - Junctions の refs に合流 / gridKey 更新 ... 等
@@ -468,6 +470,12 @@ document.addEventListener('pointermove', (e) => {
             const master = (typeof findMasterByWaypoint === 'function' && wpId)
                 ? (findMasterByWaypoint(wpId) || wpId)
                 : wpId;
+console.log("対応する master:", master);
+  const refs = document.querySelectorAll(`.wire[data-to-id="${master}"]`);
+  console.log("toId=master のワイヤ数:", refs.length);
+  refs.forEach((w,i)=>{
+    console.log("  wire#", i, "wireId=", w.dataset.wireId, "points=", w.getAttribute("points"));
+  });
             if (master) {
                 document.querySelectorAll('svg#wireLayer .wire').forEach(w => {
                     if (w.dataset.toId === master) {
