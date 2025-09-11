@@ -72,6 +72,25 @@ export function regenerateTikz() {
         out.push(`\\draw ${seq};`);
     });
 
+    const printed = new Set();
+    document.querySelectorAll('svg#wireLayer .wire').forEach(poly => {
+        const toId = poly.dataset.toId || '';
+        if (!toId.startsWith('wp_')) return;
+        const m = /^wp_(.+)_(\d+)$/.exec(toId);
+        if (!m) return;
+        const baseWireId = m[1], idx = parseInt(m[2], 10);
+        const base = document.querySelector(`svg#wireLayer .wire[data-wire-id="${baseWireId}"]`);
+        if (!base) return;
+        const pts = (base.getAttribute('points') || '').split(' ').filter(Boolean)
+            .map(s => { const [x, y] = s.split(',').map(Number); return { x, y }; });
+        if (idx <= 0 || idx >= pts.length - 1) return;
+        const g = halfPxToGrid(getCoordinate(pts[idx]));
+        const key = `${g.x},${g.y}`;
+        if (printed.has(key)) return;
+        printed.add(key);
+        out.push(`\\draw (${g.x},${g.y}) node[circ] {};`);
+    });
+
     out.push(`\\end{circuitikz}\n\\end{figure}`);
     document.getElementById("output").value = out.join("\n");
 }

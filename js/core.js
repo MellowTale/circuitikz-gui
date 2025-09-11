@@ -229,6 +229,52 @@ function updatePreview(currentPt) {
     wiring.preview.setAttribute("points", pointsStr);
     WaypointPreview.sync();
 }
+// 経由点ID → px座標を取得（wp_<wireId>_<index>）
+function getWaypointPx(waypointId) {
+    const m = /^wp_(.+)_(\d+)$/.exec(waypointId || "");
+    if (!m) return null;
+    const wireId = m[1];
+    const idx = parseInt(m[2], 10);
+    const poly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${wireId}"]`);
+    if (!poly) return null;
+    const pts = (poly.getAttribute('points') || '').split(' ').filter(Boolean)
+        .map(t => { const [x, y] = t.split(',').map(Number); return { x, y }; });
+    if (idx <= 0 || idx >= pts.length - 1) return null;
+    return pts[idx];
+}
+
+// 端子 → 経由点ID で確定（toId に waypointId を保存）
+function finishWiringToWaypoint(waypointId) {
+    const svg = document.getElementById('wireLayer');
+    const wireId = 'w' + Date.now() + Math.random().toString(36).slice(2, 6);
+
+    const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    poly.setAttribute('fill', 'none'); poly.setAttribute('stroke', 'black'); poly.setAttribute('stroke-width', '2');
+    poly.classList.add('wire'); poly.dataset.wireId = wireId;
+
+    const hit = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+    hit.classList.add('wire-hit'); hit.dataset.wireId = wireId;
+
+    const pStart = snapPointToGridS(getTerminalCenterPx(wiring.fromTerminal));
+    const pEndPx = getWaypointPx(waypointId);
+    if (!pEndPx) { cancelWiring(); return; }
+    const pEnd = snapPointToGridS(pEndPx);
+
+    const allPts = [pStart, ...wiring.tempPoints, pEnd];
+    const s = allPts.map(p => `${p.x},${p.y}`).join(' ');
+    poly.setAttribute('points', s); hit.setAttribute('points', s);
+
+    poly.dataset.fromId = wiring.fromTerminal.id;
+    poly.dataset.toId = waypointId;  // 👈 経由点IDを保存（別頂点は作らない）
+    svg.appendChild(poly); svg.appendChild(hit);
+    attachWireHoverHandlers(poly, hit);
+
+    if (wiring.preview) { wiring.preview.remove(); wiring.preview = null; }
+    wiring.active = false; wiring.fromTerminal = null; wiring.tempPoints = [];
+    document.getElementById('canvas').classList.remove('wiring-active');
+    if (window.WaypointHandles) WaypointHandles.clear();
+    regenerateTikz?.();
+}
 
 function finishWiring(toPt) {
     if (toPt.dataset.owner && (toPt.dataset.owner === wiring.fromTerminal.dataset.owner)) return cancelWiring();
@@ -309,8 +355,12 @@ function makeHandleDraggable(h, poly, index, isPreview) {
         h.setPointerCapture?.(e.pointerId);
         dragging = { handle: h, poly, index, isPreview };
     });
-    h.addEventListener("click", (ev) => {
-        if (wiring.active) { ev.stopPropagation(); finishWiring(h); }
+    h.addEventListener('click', (ev) => {
+        if (wiring.active && !isPreview) {
+            ev.stopPropagation();
+            const wpId = h.dataset.waypointId;
+            if (wpId) finishWiringToWaypoint(wpId);
+        }
     });
 }
 
@@ -328,7 +378,9 @@ function showWaypointsForPolyline(poly, opts = { isPreview: false, append: false
         placeHandleAt(h, pts[i]);
         if (!opts.isPreview && poly.dataset.wireId) {
             const wpId = `wp_${poly.dataset.wireId}_${i}`;
-            h.id = wpId; h.dataset.wireId = poly.dataset.wireId; h.dataset.waypointId = wpId;
+            h.id = wpId;
+            h.dataset.waypointId = wpId;
+            h.dataset.wireId = poly.dataset.wireId;
         }
         makeHandleDraggable(h, poly, i, opts.isPreview);
         handleLayer.appendChild(h);
@@ -342,7 +394,11 @@ document.addEventListener('pointermove', (e) => {
     const pts = polyGetPoints(dragging.poly);
     const idx = Math.max(1, Math.min(pts.length - 2, dragging.index));
     pts[idx] = p; polySetPoints(dragging.poly, pts);
-    if (!dragging.isPreview) regenerateTikz?.();
+    if (!dragging.isPreview) {
+        // 経由点IDに接続したワイヤの末端を追従更新
+        if (typeof updateConnections === 'function') updateConnections();
+        regenerateTikz?.();
+    }
 });
 document.addEventListener('pointerup', (e) => {
     if (!dragging) return;
@@ -366,12 +422,20 @@ function attachWireHoverHandlers(poly, polyHit) {
 export function updateConnections() {
     document.querySelectorAll("svg#wireLayer .wire").forEach(poly => {
         const from = document.getElementById(poly.dataset.fromId);
-        const to = document.getElementById(poly.dataset.toId);
-        if (!from || !to) { removeWire(poly.dataset.wireId); return; }
+        let to = null, toWp = null;
+        if (poly.dataset.toId) {
+            if (poly.dataset.toId.startsWith('wp_')) toWp = poly.dataset.toId;
+            else to = document.getElementById(poly.dataset.toId);
+        }
+        if (!from && !to && !toWp) { removeWire(poly.dataset.wireId); return; }
         const pts = polyGetPoints(poly);
         if (pts.length < 2) return;
-        pts[0] = snapPointToGridS(getTerminalCenterPx(from));
-        pts[pts.length - 1] = snapPointToGridS(getTerminalCenterPx(to));
+        if (from) pts[0] = snapPointToGridS(getTerminalCenterPx(from));
+        if (to) pts[pts.length - 1] = snapPointToGridS(getTerminalCenterPx(to));
+        else if (toWp) {
+            const p = getWaypointPx(toWp);
+            if (p) pts[pts.length - 1] = snapPointToGridS(p);
+        }
         const s = pts.map(p => `${p.x},${p.y}`).join(" ");
         poly.setAttribute("points", s);
         const hit = document.querySelector(`svg#wireLayer .wire-hit[data-wire-id="${poly.dataset.wireId}"]`);
@@ -381,6 +445,13 @@ export function updateConnections() {
 
 export function removeWire(wireId) {
     document.querySelectorAll(`#wireLayer .wire[data-wire-id="${wireId}"], #wireLayer .wire-hit[data-wire-id="${wireId}"]`).forEach(n => n.remove());
+    const prefix = `wp_${wireId}_`;
+    document.querySelectorAll('#wireLayer .wire').forEach(w => {
+        if (w.dataset.toId && w.dataset.toId.startsWith(prefix)) {
+            const id = w.dataset.wireId;
+            if (id) document.querySelectorAll(`#wireLayer .wire[data-wire-id="${id}"], #wireLayer .wire-hit[data-wire-id="${id}"]`).forEach(n => n.remove());
+        }
+    });
     if (window.WaypointHandles) WaypointHandles.clear();
     regenerateTikz?.();
 }
