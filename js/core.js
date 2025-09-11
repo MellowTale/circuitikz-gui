@@ -389,6 +389,18 @@ function makeHandleDraggable(h, poly, index, isPreview) {
         h.classList.add('selected');
         h.setPointerCapture?.(e.pointerId);
         dragging = { handle: h, poly, index, isPreview };
+        const wpId = h.dataset.waypointId;
+        if (wpId) {
+            const key = gridKeyOfPoint(polyGetPoints(poly)[index]);
+            let master = (typeof findMasterByWaypoint === 'function') ? (findMasterByWaypoint(wpId) || null) : null;
+            if (!master) {
+                master = (typeof findMasterByGridKey === 'function') ? (findMasterByGridKey(key) || wpId) : wpId;
+                if (!Junctions.has(master)) Junctions.set(master, { gridKey: key, refs: new Set() });
+            }
+            const node = Junctions.get(master);
+            node.refs.add(refFromWpId(wpId));
+            Junctions.set(master, node);
+        }
     });
     h.addEventListener('click', (ev) => {
         if (wiring.active && h.dataset.waypointId) {
