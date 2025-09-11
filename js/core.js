@@ -47,6 +47,7 @@ export function startPlacing(kind) {
     let el = null;
     if (kind === 'ground-img') el = addGround();
     else if (kind === 'resistor') el = add2PinElement('resistor');
+    else if (kind === 'inductor') el = add2PinElement('inductor');
     else if (kind === 'vsource') el = add2PinElement('vsource');
     if (!el) return;
 
@@ -124,8 +125,14 @@ function placeElementUnderCursor(el, e) {
 }
 
 function add2PinElement(className) {
-    const extra = (className === 'resistor' || className === 'vsource') ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
-    return createComponent({ className, pinSides: ["left", "right"], extraMargin: extra });
+    const needsMargin = (
+        className === 'resistor'
+        || className === 'vsource'
+    );
+    const extra = needsMargin ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
+    const byImg = (className === 'coil');
+    const inner = byImg ? `<img src="inductor.svg" alt="L">` : "";
+    return createComponent({ className, pinSides: ["left", "right"], innerHTML: inner, extraMargin: extra });
 }
 
 function addGround() {

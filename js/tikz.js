@@ -24,8 +24,28 @@ export function regenerateTikz() {
             out.push(`\\draw (${p1.x},${p1.y}) to[european resistor] (${p2.x},${p2.y});`);
         }
     });
-
-    // 2) 電源
+    // 2) コイル
+    document.querySelectorAll(".coil").forEach((el) => {
+        const left = el.querySelector('.terminal[data-side="left"]');
+        const right = el.querySelector('.terminal[data-side="right"]');
+        const top = el.querySelector('.terminal[data-side="top"]');
+        const bottom = el.querySelector('.terminal[data-side="bottom"]');
+        let p1 = 0, p2 = 0;
+        if (left && right) {
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(left)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(right)));
+        } else if (top && bottom) {
+            p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(top)));
+            p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(bottom)));
+        } else return;
+        if (el.classList.contains("o180") || el.classList.contains("o270")) {
+            // 反転して出力
+            out.push(`\\draw (${p2.x},${p2.y}) to[inductor] (${p1.x},${p1.y});`);
+        } else {
+            out.push(`\\draw (${p1.x},${p1.y}) to[inductor] (${p2.x},${p2.y});`);
+        }
+    });
+    // 3) 電源
     document.querySelectorAll(".vsource").forEach((el) => {
         const left = el.querySelector('.terminal[data-side="left"]');
         const right = el.querySelector('.terminal[data-side="right"]');
@@ -46,7 +66,7 @@ export function regenerateTikz() {
         }
     });
 
-    // 3) GND
+    // 4) GND
     document.querySelectorAll(".ground-img").forEach((g) => {
         const term = g.querySelector('.terminal');
         if (!term) return;
@@ -58,7 +78,7 @@ export function regenerateTikz() {
         out.push(`\\draw (${p.x},${p.y}) node[ground${angle}] {};`);
     });
 
-    // 4) 導線
+    // 5) 導線
     document.querySelectorAll("svg#wireLayer .wire").forEach(poly => {
         const pts = (poly.getAttribute("points") || "")
             .split(" ").filter(Boolean)
