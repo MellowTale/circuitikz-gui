@@ -1,4 +1,22 @@
+// main.js
 import { startPlacing, clearSelection, rotateSelected } from "./core.js";
+
+function init(){
+  const buttons = document.querySelectorAll('.tool');
+  buttons.forEach(btn=>{
+    const kind = btn.getAttribute('data-kind');
+    if (!kind) return;
+    btn.addEventListener('click', ()=>{
+      buttons.forEach(b=>b.classList.remove('is-active'));
+      btn.classList.add('is-active');
+      startPlacing(kind);
+    });
+  });
+  // …（省略：キャンバスクリックやRキーなど）
+}
+document.readyState === 'loading'
+  ? document.addEventListener('DOMContentLoaded', init, {once:true})
+  : init();
 
 // Canvasの空クリックで選択解除
 document.getElementById("canvas").addEventListener("click", (e) => {
