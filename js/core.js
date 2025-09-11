@@ -445,38 +445,33 @@ document.addEventListener('pointermove', (e) => {
     const idx = Math.max(1, Math.min(pts.length - 2, dragging.index));
     pts[idx] = p; polySetPoints(dragging.poly, pts);
     if (!dragging.isPreview) {
-        // junctionに属しているなら、同じjunctionの他ワイヤの該当頂点も同座標へ
-        const wpId = dragging.handle.dataset.waypointId;
-        if (wpId) {
-            const master = findMasterByWaypoint(wpId) || wpId; // masterがなければ自分を仮master
-            const key = gridKeyOfPoint(p);
-            const node = Junctions.get(master);
-            +    let node = Junctions.get(master);
-            if (!node) {
-                // まだ Junctions になければ（= 最初に掴んだのが alias 側等）
-                const used = document.querySelector(`svg#wireLayer .wire[data-to-id="${master}"]`);
-                if (used) {
-                    node = { gridKey: key, refs: new Set([refFromWpId(master)]) };
-                    Junctions.set(master, node);
-                }
-                // master と別の経由点を掴んでいる場合はそれも合流させる
-                if (wpId !== master) {
-                    const ref = refFromWpId(wpId);
-                    if (ref) { (node ??= { gridKey: key, refs: new Set() }).refs.add(ref); Junctions.set(master, node); }
-                }
-            }
-            if (node) {
-                node.gridKey = key; // junctionの位置更新
-                getRefs(master).forEach(ref => {
-                    const [wId, idxStr] = ref.split(':'); const wIdx = parseInt(idxStr, 10);
-                    const poly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${wId}"]`);
-                    if (!poly) return;
-                    const arr = polyGetPoints(poly); if (wIdx <= 0 || wIdx >= arr.length - 1) return;
-                    arr[wIdx] = p; polySetPoints(poly, arr);
+        if (!dragging.isPreview) {
+            const wpId = dragging.handle.dataset.waypointId; // ← ドラッグ中の “経由点ID”
+
+            // 1) junction 同期（あなたの既存コードがあればそのまま残してください）
+            //    - master = findMasterByWaypoint(wpId) || wpId; ... 等
+            //    - Junctions の refs に合流 / gridKey 更新 ... 等
+
+            // 2) 依存ワイヤ（toId = master）を “その場で” 末端更新
+            const master = (typeof findMasterByWaypoint === 'function' && wpId)
+                ? (findMasterByWaypoint(wpId) || wpId)
+                : wpId;
+            if (master) {
+                document.querySelectorAll('svg#wireLayer .wire').forEach(w => {
+                    if (w.dataset.toId === master) {
+                        const arr = polyGetPoints(w);
+                        if (arr.length >= 2) {
+                            arr[arr.length - 1] = p;        // 末端を今の座標 p に
+                            polySetPoints(w, arr);
+                        }
+                    }
                 });
             }
+
+            // 3) 念のための整合（端子側の追従などは既存の updateConnections に任せる）
+            if (typeof updateConnections === 'function') updateConnections();
+            regenerateTikz?.();
         }
-        regenerateTikz?.();
     }
 });
 document.addEventListener('pointerup', (e) => {
