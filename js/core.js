@@ -124,7 +124,7 @@ function placeElementUnderCursor(el, e) {
 }
 
 function add2PinElement(className) {
-    const extra = className === ('resistor' || 'vsource') ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
+    const extra = (className === 'resistor' || className === 'vsource') ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
     return createComponent({ className, pinSides: ["left", "right"], extraMargin: extra });
 }
 
@@ -416,10 +416,20 @@ function showWaypointsForPolyline(poly, opts = { isPreview: false, append: false
             h.dataset.waypointId = wpId;
             h.dataset.wireId = poly.dataset.wireId;
             const key = gridKeyOfPoint(pts[i]);
-            const master = findMasterByGridKey(key);
+            let master = findMasterByGridKey(key);
             if (master) {
-                if (master === wpId) h.classList.add('is-junction'); // 主
-                else h.classList.add('is-alias');                    // 従（同じ位置の別ワイヤ頂点）
+                // 既存junctionに「この経由点」を合流
+                Junctions.get(master).refs.add(refFromWpId(wpId));
+                if (master === wpId) h.classList.add('is-junction');
+                else h.classList.add('is-alias');
+            } else {
+                // まだjunctionがないが、この経由点を toId に使っているワイヤがあれば主として昇格
+                const used = document.querySelector(`svg#wireLayer .wire[data-to-id="${wpId}"]`);
+                if (used) {
+                    master = wpId;
+                    Junctions.set(master, { gridKey: key, refs: new Set([refFromWpId(wpId)]) });
+                    h.classList.add('is-junction');
+                }
             }
         }
         makeHandleDraggable(h, poly, i, opts.isPreview);
@@ -441,6 +451,20 @@ document.addEventListener('pointermove', (e) => {
             const master = findMasterByWaypoint(wpId) || wpId; // masterがなければ自分を仮master
             const key = gridKeyOfPoint(p);
             const node = Junctions.get(master);
+            +    let node = Junctions.get(master);
+            if (!node) {
+                // まだ Junctions になければ（= 最初に掴んだのが alias 側等）
+                const used = document.querySelector(`svg#wireLayer .wire[data-to-id="${master}"]`);
+                if (used) {
+                    node = { gridKey: key, refs: new Set([refFromWpId(master)]) };
+                    Junctions.set(master, node);
+                }
+                // master と別の経由点を掴んでいる場合はそれも合流させる
+                if (wpId !== master) {
+                    const ref = refFromWpId(wpId);
+                    if (ref) { (node ??= { gridKey: key, refs: new Set() }).refs.add(ref); Junctions.set(master, node); }
+                }
+            }
             if (node) {
                 node.gridKey = key; // junctionの位置更新
                 getRefs(master).forEach(ref => {
@@ -501,7 +525,7 @@ export function updateConnections() {
 
 export function removeWire(wireId) {
     document.querySelectorAll(`#wireLayer .wire[data-wire-id="${wireId}"], #wireLayer .wire-hit[data-wire-id="${wireId}"]`).forEach(n => n.remove());
- 
+
     // a) junction refsから当該wireの参照を削除
     for (const [mid, node] of Junctions) {
         let changed = false;
