@@ -1,7 +1,33 @@
+const Junctions = new Map();
+
 import {
-    getCanvasRect, getTerminalCenterPx, normalizeCanvasPoint, snapPointToGridS, toCanvasPoint
+    getCanvasRect, getTerminalCenterPx, normalizeCanvasPoint, snapPointToGridS, toCanvasPoint, halfPxToGrid, getCoordinate
 } from "./state-geom.js";
 import { regenerateTikz } from "./tikz.js";
+
+function gridKeyOfPoint(p) { const g = halfPxToGrid(getCoordinate(p)); return `${g.x},${g.y}`; }
+
+function parseWpId(wpId) {
+    const m = /^wp_(.+)_(\d+)$/.exec(wpId || "");
+    return m ? { wireId: m[1], index: parseInt(m[2], 10) } : null;
+}
+function refFromWpId(wpId) {
+    const m = parseWpId(wpId);
+    return m ? `${m.wireId}:${m.index}` : null;
+}
+function getRefs(masterId) {
+    const n = Junctions.get(masterId); return n ? Array.from(n.refs) : [];
+}
+function findMasterByGridKey(key) {
+    for (const [mid, node] of Junctions) if (node.gridKey === key) return mid;
+    return null;
+}
+function findMasterByWaypoint(wpId) {
+    for (const [mid, node] of Junctions) {
+        if (node.refs.has(refFromWpId(wpId))) return mid;
+    }
+    return null;
+}
 
 // ---- 選択状態 ----
 export function clearSelection() {
@@ -231,20 +257,31 @@ function updatePreview(currentPt) {
 }
 // 経由点ID → px座標を取得（wp_<wireId>_<index>）
 function getWaypointPx(waypointId) {
-    const m = /^wp_(.+)_(\d+)$/.exec(waypointId || "");
-    if (!m) return null;
-    const wireId = m[1];
-    const idx = parseInt(m[2], 10);
-    const poly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${wireId}"]`);
+    const m = /^wp_(.+)_(\d+)$/.exec(waypointId || ""); if (!m) return null;
+    const poly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${m[1]}"]`);
     if (!poly) return null;
     const pts = (poly.getAttribute('points') || '').split(' ').filter(Boolean)
-        .map(t => { const [x, y] = t.split(',').map(Number); return { x, y }; });
-    if (idx <= 0 || idx >= pts.length - 1) return null;
-    return pts[idx];
+        .map(s => { const [x, y] = s.split(',').map(Number); return { x, y }; });
+    const idx = parseInt(m[2], 10);
+    return (idx > 0 && idx < pts.length - 1) ? pts[idx] : null;
 }
 
-// 端子 → 経由点ID で確定（toId に waypointId を保存）
 function finishWiringToWaypoint(waypointId) {
+    const pEndPx = getWaypointPx(waypointId); // 既存 or 先に作ったヘルパ
+    if (!pEndPx) { cancelWiring(); return; }
+
+    // 1) その位置のjunctionを取得/作成
+    const key = gridKeyOfPoint(pEndPx);
+    let master = findMasterByGridKey(key);
+    if (!master) { // 新規junction: 自分をmasterに
+        master = waypointId;
+        Junctions.set(master, { gridKey: key, refs: new Set([refFromWpId(waypointId)]) });
+    } else {
+        // 既存junctionに自分(wireId:index)を登録
+        Junctions.get(master).refs.add(refFromWpId(waypointId));
+    }
+
+    // 2) 実配線（toId は常に master を参照＝別点を作らない）
     const svg = document.getElementById('wireLayer');
     const wireId = 'w' + Date.now() + Math.random().toString(36).slice(2, 6);
 
@@ -256,19 +293,17 @@ function finishWiringToWaypoint(waypointId) {
     hit.classList.add('wire-hit'); hit.dataset.wireId = wireId;
 
     const pStart = snapPointToGridS(getTerminalCenterPx(wiring.fromTerminal));
-    const pEndPx = getWaypointPx(waypointId);
-    if (!pEndPx) { cancelWiring(); return; }
     const pEnd = snapPointToGridS(pEndPx);
-
     const allPts = [pStart, ...wiring.tempPoints, pEnd];
     const s = allPts.map(p => `${p.x},${p.y}`).join(' ');
     poly.setAttribute('points', s); hit.setAttribute('points', s);
 
     poly.dataset.fromId = wiring.fromTerminal.id;
-    poly.dataset.toId = waypointId;  // 👈 経由点IDを保存（別頂点は作らない）
+    poly.dataset.toId = master;         // ← ここが肝：常に master を参照
     svg.appendChild(poly); svg.appendChild(hit);
     attachWireHoverHandlers(poly, hit);
 
+    // 終了処理
     if (wiring.preview) { wiring.preview.remove(); wiring.preview = null; }
     wiring.active = false; wiring.fromTerminal = null; wiring.tempPoints = [];
     document.getElementById('canvas').classList.remove('wiring-active');
@@ -356,10 +391,9 @@ function makeHandleDraggable(h, poly, index, isPreview) {
         dragging = { handle: h, poly, index, isPreview };
     });
     h.addEventListener('click', (ev) => {
-        if (wiring.active && !isPreview) {
+        if (wiring.active && h.dataset.waypointId) {
             ev.stopPropagation();
-            const wpId = h.dataset.waypointId;
-            if (wpId) finishWiringToWaypoint(wpId);
+            finishWiringToWaypoint(h.dataset.waypointId);
         }
     });
 }
@@ -381,6 +415,12 @@ function showWaypointsForPolyline(poly, opts = { isPreview: false, append: false
             h.id = wpId;
             h.dataset.waypointId = wpId;
             h.dataset.wireId = poly.dataset.wireId;
+            const key = gridKeyOfPoint(pts[i]);
+            const master = findMasterByGridKey(key);
+            if (master) {
+                if (master === wpId) h.classList.add('is-junction'); // 主
+                else h.classList.add('is-alias');                    // 従（同じ位置の別ワイヤ頂点）
+            }
         }
         makeHandleDraggable(h, poly, i, opts.isPreview);
         handleLayer.appendChild(h);
@@ -395,8 +435,23 @@ document.addEventListener('pointermove', (e) => {
     const idx = Math.max(1, Math.min(pts.length - 2, dragging.index));
     pts[idx] = p; polySetPoints(dragging.poly, pts);
     if (!dragging.isPreview) {
-        // 経由点IDに接続したワイヤの末端を追従更新
-        if (typeof updateConnections === 'function') updateConnections();
+        // junctionに属しているなら、同じjunctionの他ワイヤの該当頂点も同座標へ
+        const wpId = dragging.handle.dataset.waypointId;
+        if (wpId) {
+            const master = findMasterByWaypoint(wpId) || wpId; // masterがなければ自分を仮master
+            const key = gridKeyOfPoint(p);
+            const node = Junctions.get(master);
+            if (node) {
+                node.gridKey = key; // junctionの位置更新
+                getRefs(master).forEach(ref => {
+                    const [wId, idxStr] = ref.split(':'); const wIdx = parseInt(idxStr, 10);
+                    const poly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${wId}"]`);
+                    if (!poly) return;
+                    const arr = polyGetPoints(poly); if (wIdx <= 0 || wIdx >= arr.length - 1) return;
+                    arr[wIdx] = p; polySetPoints(poly, arr);
+                });
+            }
+        }
         regenerateTikz?.();
     }
 });
@@ -428,6 +483,7 @@ export function updateConnections() {
             else to = document.getElementById(poly.dataset.toId);
         }
         if (!from && !to && !toWp) { removeWire(poly.dataset.wireId); return; }
+
         const pts = polyGetPoints(poly);
         if (pts.length < 2) return;
         if (from) pts[0] = snapPointToGridS(getTerminalCenterPx(from));
@@ -445,6 +501,17 @@ export function updateConnections() {
 
 export function removeWire(wireId) {
     document.querySelectorAll(`#wireLayer .wire[data-wire-id="${wireId}"], #wireLayer .wire-hit[data-wire-id="${wireId}"]`).forEach(n => n.remove());
+ 
+    // a) junction refsから当該wireの参照を削除
+    for (const [mid, node] of Junctions) {
+        let changed = false;
+        node.refs.forEach(ref => { if (ref.startsWith(`${wireId}:`)) { node.refs.delete(ref); changed = true; } });
+        // refsが空になったjunctionは削除
+        if (node.refs.size === 0) Junctions.delete(mid);
+        else if (changed) Junctions.set(mid, node);
+    }
+
+    // b) そのwire上の経由点をmasterにしていた下流ワイヤも削除（toIdが "wp_wireId_*"）
     const prefix = `wp_${wireId}_`;
     document.querySelectorAll('#wireLayer .wire').forEach(w => {
         if (w.dataset.toId && w.dataset.toId.startsWith(prefix)) {
