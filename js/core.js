@@ -457,41 +457,41 @@ document.addEventListener('pointermove', (e) => {
     const idx = Math.max(1, Math.min(pts.length - 2, dragging.index));
     pts[idx] = p; polySetPoints(dragging.poly, pts);
     if (!dragging.isPreview) {
-        if (!dragging.isPreview) {
-            const wpId = dragging.handle.dataset.waypointId; // ← ドラッグ中の “経由点ID”
-
-  console.log("---- ドラッグ中 ----");
-  console.log("掴んだ経由点 wpId:", wpId);
-            // 1) junction 同期（あなたの既存コードがあればそのまま残してください）
-            //    - master = findMasterByWaypoint(wpId) || wpId; ... 等
-            //    - Junctions の refs に合流 / gridKey 更新 ... 等
-
-            // 2) 依存ワイヤ（toId = master）を “その場で” 末端更新
-            const master = (typeof findMasterByWaypoint === 'function' && wpId)
+        const wpId = dragging.handle.dataset.waypointId;
+        if (wpId) {
+            // 1) master を特定（あればそれ、なければ自分を master とみなす）
+            const master = (typeof findMasterByWaypoint === 'function')
                 ? (findMasterByWaypoint(wpId) || wpId)
                 : wpId;
-console.log("対応する master:", master);
-  const refs = document.querySelectorAll(`.wire[data-to-id="${master}"]`);
-  console.log("toId=master のワイヤ数:", refs.length);
-  refs.forEach((w,i)=>{
-    console.log("  wire#", i, "wireId=", w.dataset.wireId, "points=", w.getAttribute("points"));
-  });
-            if (master) {
-                document.querySelectorAll('svg#wireLayer .wire').forEach(w => {
-                    if (w.dataset.toId === master) {
-                        const arr = polyGetPoints(w);
-                        if (arr.length >= 2) {
-                            arr[arr.length - 1] = p;        // 末端を今の座標 p に
-                            polySetPoints(w, arr);
-                        }
+
+            // 2) master の“基点ワイヤ”の該当中間点を p に更新（A–B側も必ず動かす）
+            const m = /^wp_(.+)_(\d+)$/.exec(master);
+            if (m) {
+                const baseWireId = m[1];
+                const baseIdx = parseInt(m[2], 10);
+                const basePoly = document.querySelector(`svg#wireLayer .wire[data-wire-id="${baseWireId}"]`);
+                if (basePoly) {
+                    const arr = polyGetPoints(basePoly);
+                    if (baseIdx > 0 && baseIdx < arr.length - 1) {
+                        arr[baseIdx] = p;
+                        polySetPoints(basePoly, arr);
                     }
-                });
+                }
             }
 
-            // 3) 念のための整合（端子側の追従などは既存の updateConnections に任せる）
-            if (typeof updateConnections === 'function') updateConnections();
-            regenerateTikz?.();
+            // 3) master を toId に持つ下流ワイヤの末端も p に更新（C→中間点側）
+            document.querySelectorAll(`svg#wireLayer .wire[data-to-id="${master}"]`).forEach(w => {
+                const arr = polyGetPoints(w);
+                if (arr.length >= 2) {
+                    arr[arr.length - 1] = p; // 末端を今の座標に
+                    polySetPoints(w, arr);
+                }
+            });
         }
+
+        // 4) 通常の追従・整合（端子側など）
+        if (typeof updateConnections === 'function') updateConnections();
+        regenerateTikz?.();
     }
 });
 document.addEventListener('pointerup', (e) => {
