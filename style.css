@@ -362,10 +362,10 @@ body.no-select *,
     --term-bottom: calc(-21px - var(--termRadius));
 }
 .inductor {
-    --term-left: calc(-21px - var(--termRadius));
-    --term-right: calc(-21px - var(--termRadius));
-    --term-top: calc(-21px - var(--termRadius));
-    --term-bottom: calc(-21px - var(--termRadius));
+    --term-left: calc(-1px - var(--termRadius));
+    --term-right: calc(-1px - var(--termRadius));
+    --term-top: calc(-1px - var(--termRadius));
+    --term-bottom: calc(-1px - var(--termRadius));
 }
 .vsource {
     --term-left: calc(-21px - var(--termRadius));
