@@ -282,6 +282,22 @@ body.no-select *,
     pointer-events: none;
 }
 
+.inductor-img.o90 img {
+    transform: rotate(90deg);
+    transform-origin: center;
+}
+
+.inductor-img.o180 img {
+    transform: rotate(180deg);
+    transform-origin: center;
+}
+
+.inductor-img.o270 img {
+    transform: rotate(270deg);
+    transform-origin: center;
+}
+
+
 .ground-img {
     position: absolute;
     width: 20px;
@@ -344,7 +360,12 @@ body.no-select *,
     --term-top: calc(-21px - var(--termRadius));
     --term-bottom: calc(-21px - var(--termRadius));
 }
-
+.inductor {
+    --term-left: calc(-21px - var(--termRadius));
+    --term-right: calc(-21px - var(--termRadius));
+    --term-top: calc(-21px - var(--termRadius));
+    --term-bottom: calc(-21px - var(--termRadius));
+}
 .vsource {
     --term-left: calc(-21px - var(--termRadius));
     --term-right: calc(-21px - var(--termRadius));
