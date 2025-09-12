@@ -33,8 +33,3 @@ document.querySelectorAll('.tool').forEach(btn => {
         if (kind) startPlacing(kind);
     });
 });
-
-// // 例: Rキーで回転（グローバル）
-// window.addEventListener('keydown', (e) => {
-//     if (e.key.toLowerCase() === 'r') rotateSelected();
-// });
