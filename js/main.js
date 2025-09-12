@@ -34,7 +34,7 @@ document.querySelectorAll('.tool').forEach(btn => {
     });
 });
 
-// 例: Rキーで回転（グローバル）
-window.addEventListener('keydown', (e) => {
-    if (e.key.toLowerCase() === 'r') rotateSelected();
-});
+// // 例: Rキーで回転（グローバル）
+// window.addEventListener('keydown', (e) => {
+//     if (e.key.toLowerCase() === 'r') rotateSelected();
+// });
