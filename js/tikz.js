@@ -39,10 +39,9 @@ export function regenerateTikz() {
             p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(bottom)));
         } else return;
         if (el.classList.contains("o180") || el.classList.contains("o270")) {
-            // 反転して出力
-            out.push(`\\draw (${p2.x},${p2.y}) to[inductor] (${p1.x},${p1.y});`);
+            out.push(`\\draw (${p2.x},${p2.y}) to[L] (${p1.x},${p1.y});`);
         } else {
-            out.push(`\\draw (${p1.x},${p1.y}) to[inductor] (${p2.x},${p2.y});`);
+            out.push(`\\draw (${p1.x},${p1.y}) to[L] (${p2.x},${p2.y});`);
         }
     });
     // 3) 電源

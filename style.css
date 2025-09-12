@@ -152,6 +152,7 @@ button.tool img {
 
 .resistor,
 .vsource,
+.inductor,
 .ground,
 .ground-img {
     touch-action: none;
