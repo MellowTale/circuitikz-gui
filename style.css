@@ -4,15 +4,6 @@
     --origin-y: 330px;
 }
 
-.component {
-    --term-left: calc(-21px - var(--termRadius));
-    --term-right: calc(-21px - var(--termRadius));
-    --term-top: calc(-21px - var(--termRadius));
-    --term-bottom: calc(-21px - var(--termRadius));
-    /* --term-v: 50%; 左右端子の縦位置 */
-    /* --term-h: 50%; 上下端子の横位置 */
-}
-
 .workspace {
     display: grid;
     grid-template-columns: 220px 1fr;
@@ -276,6 +267,7 @@ body.no-select *,
     cursor: move;
     transform: translate(-50%, -50%);
 }
+
 .inductor img {
     width: 100%;
     height: 100%;
@@ -361,12 +353,14 @@ body.no-select *,
     --term-top: calc(-21px - var(--termRadius));
     --term-bottom: calc(-21px - var(--termRadius));
 }
+
 .inductor {
     --term-left: calc(-1 * var(--termRadius));
     --term-right: calc(-1 * var(--termRadius));
     --term-top: calc(-1 * var(--termRadius));
     --term-bottom: calc(-1 * var(--termRadius));
 }
+
 .vsource {
     --term-left: calc(-21px - var(--termRadius));
     --term-right: calc(-21px - var(--termRadius));
