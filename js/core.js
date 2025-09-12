@@ -130,7 +130,7 @@ function add2PinElement(className) {
         || className === 'vsource'
     );
     const extra = needsMargin ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
-    const byImg = (className === 'coil');
+    const byImg = (className === 'inductor');
     const inner = byImg ? `<img src="inductor.svg" alt="L">` : "";
     return createComponent({ className, pinSides: ["left", "right"], innerHTML: inner, extraMargin: extra });
 }
@@ -141,7 +141,7 @@ function addGround() {
 
 // ---- 回転 ----
 export function rotateSelected() {
-    const el = document.querySelector('.resistor.selected, .vsource.selected, .ground-img.selected');
+    const el = document.querySelector('.resistor.selected, .inductor.selected, .vsource.selected, .ground-img.selected');
     if (!el) return; rotateElement(el);
 }
 

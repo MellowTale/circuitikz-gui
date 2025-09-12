@@ -25,7 +25,7 @@ export function regenerateTikz() {
         }
     });
     // 2) コイル
-    document.querySelectorAll(".coil").forEach((el) => {
+    document.querySelectorAll(".inductor").forEach((el) => {
         const left = el.querySelector('.terminal[data-side="left"]');
         const right = el.querySelector('.terminal[data-side="right"]');
         const top = el.querySelector('.terminal[data-side="top"]');
