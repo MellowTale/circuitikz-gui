@@ -58,10 +58,12 @@ export function regenerateTikz() {
             p1 = halfPxToGrid(getCoordinate(getTerminalCenterPx(top)));
             p2 = halfPxToGrid(getCoordinate(getTerminalCenterPx(bottom)));
         } else return;
+        const label = (el.dataset.label || "").trim();
+        const opt = label ? `, l={${label}}` : "";
         if (el.classList.contains("o180") || el.classList.contains("o270")) {
-            out.push(`\\draw (${p2.x},${p2.y}) to[battery1] (${p1.x},${p1.y});`);
+            out.push(`\\draw (${p2.x},${p2.y}) to[battery1${opt}] (${p1.x},${p1.y});`);
         } else {
-            out.push(`\\draw (${p1.x},${p1.y}) to[battery1] (${p2.x},${p2.y});`);
+            out.push(`\\draw (${p1.x},${p1.y}) to[battery1${opt}] (${p2.x},${p2.y});`);
         }
     });
 

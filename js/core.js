@@ -103,6 +103,10 @@ function createComponent({ className, pinSides = [], innerHTML = "", idPrefix, e
     });
 
     canvas.appendChild(el);
+    el.addEventListener('dblclick', (e) => {
+        e.stopPropagation();
+        startLabelEdit(el);
+    });
 
     el.margin = {
         l: el.offsetWidth / 2 + extraMargin.l,
@@ -112,6 +116,46 @@ function createComponent({ className, pinSides = [], innerHTML = "", idPrefix, e
     };
     regenerateTikz?.();
     return el;
+}
+
+function startLabelEdit(el) {
+    if (!el.classList.contains('vsource')) return;
+    let lab = el.querySelector('.comp-label');
+    if (!lab) {
+        lab = document.createElement('div');
+        lab.className = 'comp-label';
+        el.appendChild(lab);
+    }
+    // 現在の値を編集
+    lab.contentEditable = "true";
+    lab.spellcheck = false;
+    lab.focus();
+
+    // 既存テキストを全選択
+    const sel = window.getSelection();
+    const range = document.createRange();
+    range.selectNodeContents(lab);
+    sel.removeAllRanges(); sel.addRange(range);
+
+    const finish = (commit) => {
+        if (commit) {
+            const text = (lab.textContent || "").trim();
+            el.dataset.label = text;     // ← ここに保存
+        }
+        lab.contentEditable = "false";
+        sel.removeAllRanges();
+        if (typeof regenerateTikz === 'function') regenerateTikz();
+    };
+
+    lab.addEventListener('keydown', function onKey(e) {
+        if (e.key === 'Enter') { e.preventDefault(); lab.removeEventListener('keydown', onKey); finish(true); }
+        if (e.key === 'Escape') { e.preventDefault(); lab.removeEventListener('keydown', onKey); finish(false); }
+    }, { once: false });
+
+    lab.addEventListener('blur', function onBlur() {
+        lab.removeEventListener('blur', onBlur);
+        finish(true);
+    }, { once: true });
 }
 
 function placeElementUnderCursor(el, e) {
@@ -130,9 +174,10 @@ function add2PinElement(className) {
         || className === 'vsource'
     );
     const extra = needsMargin ? { l: 20, r: 20, t: 0, b: 0 } : { l: 0, r: 0, t: 0, b: 0 };
-    const byImg = (className === 'inductor');
-    const inner = byImg ? `<img src="inductor.svg" alt="L">` : "";
-    return createComponent({ className, pinSides: ["left", "right"], innerHTML: inner, extraMargin: extra });
+    const inner =
+        className === 'inductor' ? `<img src="inductor.svg" alt="L">` :
+            className === 'vsource' ? `<div class="comp-label" contenteditable="false"></div>` :
+                ""; return createComponent({ className, pinSides: ["left", "right"], innerHTML: inner, extraMargin: extra });
 }
 
 function addGround() {
@@ -182,6 +227,7 @@ function makeDraggable(element) {
     element.addEventListener('pointerdown', onPointerDown);
 
     function onPointerDown(e) {
+        if (e.target && e.target.closest && e.target.closest('.comp-label')) return;
         if (e.button !== 0 && e.pointerType === 'mouse') return;
         element.setPointerCapture?.(e.pointerId);
         const elRect = element.getBoundingClientRect();

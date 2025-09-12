@@ -423,3 +423,20 @@ body.no-select *,
 .handle-waypoint.selected {
     outline: 2px solid #59f;
 }
+
+#canvas .vsource .comp-label {
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    min-width: 12px;
+    padding: 0 4px;
+    font-size: 12px;
+    line-height: 1.1;
+    text-align: center;
+    color: #111;
+    background: transparent;
+    outline: none;
+    pointer-events: auto;
+    user-select: text;
+}
