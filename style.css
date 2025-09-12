@@ -363,8 +363,8 @@ body.no-select *,
 .inductor {
     --term-left: calc(-1 * var(--termRadius));
     --term-right: calc(-1 * var(--termRadius));
-    --term-top: calc(-31 * var(--termRadius));
-    --term-bottom: calc(-31 * var(--termRadius));
+    --term-top: calc(-31px - var(--termRadius));
+    --term-bottom: calc(-31px - var(--termRadius));
 }
 
 .vsource {
